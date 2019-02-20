@@ -4,4 +4,4 @@ osx_image: xcode10.1
 xcode_sdk: iphonesimulator12.1
 xcode_project: Machinus.xcodeproj
 xcode_scheme: Machinus
-xcode_destination: platform=iOS Simulator,OS=10.1,name=iPhone XR
+xcode_destination: platform=iOS Simulator,OS=10.1,name="iPhone XR"
