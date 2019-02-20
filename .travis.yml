@@ -5,3 +5,16 @@ xcode_sdk: iphonesimulator12.1
 xcode_project: Machinus.xcodeproj
 xcode_scheme: Machinus
 xcode_destination: platform=iOS Simulator,OS=12.1,name=iPhone XR
+env:
+  global:
+    - FRAMEWORK_NAME=Machinus
+before_install:
+  - brew update
+  - brew outdated carthage || brew upgrade carthage
+before_script:
+  # bootstrap the dependencies for the project
+  # you can remove if you don't have dependencies
+  - carthage bootstrap
+before_deploy:
+  - carthage build --no-skip-current
+  - carthage archive $FRAMEWORK_NAME
