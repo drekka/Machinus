@@ -28,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		4FB495C1221D2B6300782D6C /* .travis.yml */ = {isa = PBXFileReference; lastKnownFileType = text; path = .travis.yml; sourceTree = "<group>"; };
+		4FB495C2221D302C00782D6C /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6C920DCB221187630084E6E8 /* Machinus.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Machinus.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C920DCE221187630084E6E8 /* Machinus.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Machinus.h; sourceTree = "<group>"; };
 		6C920DCF221187630084E6E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -64,6 +65,7 @@
 		6C920DC1221187630084E6E8 = {
 			isa = PBXGroup;
 			children = (
+				4FB495C2221D302C00782D6C /* README.md */,
 				4FB495C1221D2B6300782D6C /* .travis.yml */,
 				6C920DEB221190110084E6E8 /* Cartfile.private */,
 				6C920DCD221187630084E6E8 /* Machinus */,
