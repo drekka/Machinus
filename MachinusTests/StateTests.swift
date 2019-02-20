@@ -51,16 +51,17 @@ class StateTests: XCTestCase {
     // MARK: - State properties
 
     func testCanTransition() {
-        expect(self.stateA.canTransition(toState: .bbb)).to(beTrue())
-        expect(self.stateAA.canTransition(toState: .bbb)).to(beFalse())
+        expect(self.stateA.canTransition(toState: self.stateB)).to(beTrue())
+        expect(self.stateAA.canTransition(toState: self.stateB)).to(beFalse())
     }
 
     func testCanTransitionHonoursBarrier() {
-        stateA.withEntryBarrier { false }
-        expect(self.stateA.canTransition(toState: .bbb)).to(beFalse())
+        stateB.withEntryBarrier { false }
+        expect(self.stateA.canTransition(toState: self.stateB)).to(beFalse())
     }
 
-    func testWithDynamicTransitions() {
-        
+    func testCanTransitionHonoursGlobal() {
+        stateA.makeGlobal()
+        expect(self.stateB.canTransition(toState: self.stateA)).to(beTrue())
     }
 }

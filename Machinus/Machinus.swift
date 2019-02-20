@@ -14,6 +14,9 @@ public enum MachinusError: Error {
 
     /// Returned when the target state is not in the current state's allowed transition list.
     case illegalTransition
+
+    /// Thrown when there is no dynamic transition defined on the current state.
+    case dynamicTransitionNotDefined
 }
 
 /**
@@ -57,7 +60,21 @@ public protocol StateMachine {
      - Parameter error: If teh transition was not successful, this is the error generated.
      */
     func transition(toState: StateIdentifier, completion: @escaping (_ previousState: StateIdentifier?, _ error: Error?) -> Void)
+
+    /**
+     Execute a transition using the current state's dynamic transition closure.
+
+     - Parameter completion: A closure which is called after the transiton succeeds or fails.
+     - Parameter previousState: If the transition was successful, this is the previous state of the machine.
+     - Parameter error: If teh transition was not successful, this is the error generated.
+     */
+    func transition(completion: @escaping (_ previousState: StateIdentifier?, _ error: Error?) -> Void)
+
+    /// Resets the machine to it's initial state without running any before and after closures.
+    func reset()
 }
+
+// MARK: -
 
 /// A generalised implementation of the `StateMachine` protocol.
 open class Machinus<T>: StateMachine where T: StateIdentifier {
@@ -68,11 +85,15 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
     private var beforeTransition: ((T) -> Void)?
     private var afterTransition: ((T) -> Void)?
 
+    public let name: String
+
     public var state: T {
         return current.identifier
     }
 
     public var transitionQ: DispatchQueue = DispatchQueue.main
+
+    // MARK: - Lifecycle
 
     init(name: String = UUID().uuidString + String(describing: T.self),
          withStates firstState: State<T>,
@@ -82,6 +103,7 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
             fatalError("A state machine with only one state isn't much use.")
         }
 
+        self.name = name
         let states:[State<T>] = [firstState] + otherStates
 
         self.states = states
@@ -102,6 +124,27 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
         return self
     }
 
+    public func reset() {
+        current = states[0]
+    }
+
+    // MARK: - Transitions
+
+    public func transition(completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
+
+        transitionQ.async { [weak self] in
+
+            guard let self = self else { return }
+
+            guard let toState = self.current.dynamicTransition?() else {
+                completion(nil, MachinusError.dynamicTransitionNotDefined)
+                return
+            }
+
+            self.runTransition(toState: toState, completion: completion)
+        }
+    }
+
     public func transition(toState: T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
         transitionQ.async { [weak self] in
             self?.runTransition(toState: toState, completion: completion)
@@ -116,12 +159,10 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
             return
         }
 
-        guard oldState.canTransition(toState: toState) else {
+        guard oldState.canTransition(toState: newState) else {
             completion(nil, MachinusError.illegalTransition)
             return
         }
-
-        let oldIdentifier = oldState.identifier
 
         beforeTransition?(toState)
         oldState.beforeLeaving?(toState)
@@ -129,6 +170,7 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
 
         self.current = newState
 
+        let oldIdentifier = oldState.identifier
         oldState.afterLeaving?(oldIdentifier)
         newState.afterEntering?(oldIdentifier)
         afterTransition?(oldIdentifier)
@@ -142,6 +184,9 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
 }
 
 #if DEBUG
+
+// MARK: - Testing
+
 extension Machinus {
     func testSet(toState: T) {
         guard let newState = state(forIdentifier: toState) else { fatalError("Unknown state") }

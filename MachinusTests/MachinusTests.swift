@@ -21,11 +21,21 @@ class MachinusTests: XCTestCase {
     private var stateA: State<MyState>!
     private var stateB: State<MyState>!
 
+    private var machine: Machinus<MyState>!
+
     override func setUp() {
         super.setUp()
 
         self.stateA = State(withIdentifier: .aaa, allowedTransitions: .bbb)
         self.stateB = State(withIdentifier: .bbb)
+
+        self.machine = Machinus(withStates: stateA, stateB)
+    }
+
+    // MARK: - Lifecycle
+
+    func testName() {
+        expect(self.machine.name).to(match("[0-9A-Za-z]{8}-"))
     }
 
     func testInitRequiresMoreThanOneState() {
@@ -37,9 +47,15 @@ class MachinusTests: XCTestCase {
         expect(_ = Machinus(withStates: self.stateA, stateAA)).to(throwAssertion())
     }
 
-    func testTransitionExecution() {
+    func testReset() {
+        machine.testSet(toState: .bbb)
+        machine.reset()
+        expect(self.machine.state) == .aaa
+    }
 
-        let machine = Machinus(withStates: stateA, stateB)
+    // MARK: - Transitions
+
+    func testTransitionExecution() {
 
         var prevState: MyState?
         var error: Error?
@@ -48,15 +64,13 @@ class MachinusTests: XCTestCase {
             error = $1
         }
 
-        expect(machine.state).toEventually(equal(.bbb))
+        expect(self.machine.state).toEventually(equal(.bbb))
 
         expect(prevState) == .aaa
         expect(error).to(beNil())
     }
 
     func testTransitionHookExecution() {
-
-        let machine = Machinus(withStates: stateA, stateB)
 
         var beforeTransition: MyState?
         var beforeLeaving:MyState?
@@ -75,7 +89,7 @@ class MachinusTests: XCTestCase {
             .afterTransition { afterTransition = $0 }
             .transition(toState: .bbb) { _, _ in }
 
-        expect(machine.state).toEventually(equal(.bbb))
+        expect(self.machine.state).toEventually(equal(.bbb))
 
         expect(beforeTransition) == .bbb
         expect(beforeLeaving) == .bbb
@@ -87,7 +101,6 @@ class MachinusTests: XCTestCase {
 
     func testTransitionExecutionIllegalTransitionError() {
 
-        let machine = Machinus(withStates: stateA, stateB)
         machine.testSet(toState: .bbb)
 
         var prevState: MyState?
@@ -99,13 +112,11 @@ class MachinusTests: XCTestCase {
 
         expect(error as? MachinusError).toEventually(equal(MachinusError.illegalTransition))
 
-        expect(machine.state) == .bbb
+        expect(self.machine.state) == .bbb
         expect(prevState).to(beNil())
     }
 
     func testTransitionExecutionUnknownStateError() {
-
-        let machine = Machinus(withStates: stateA, stateB)
 
         var prevState: MyState?
         var error: Error?
@@ -116,8 +127,41 @@ class MachinusTests: XCTestCase {
 
         expect(error as? MachinusError).toEventually(equal(MachinusError.unregisteredState))
 
-        expect(machine.state) == .aaa
+        expect(self.machine.state) == .aaa
         expect(prevState).to(beNil())
     }
 
+    // MARK: - Dynamic transitions
+
+    func testDynamicTransition() {
+
+        stateA.withDynamicTransitions {
+            return .bbb
+        }
+
+        var prevState: MyState?
+        var error: Error?
+        machine.transition {
+            prevState = $0
+            error = $1
+        }
+
+        expect(self.machine.state).toEventually(equal(.bbb))
+
+        expect(prevState) == .aaa
+        expect(error).to(beNil())
+    }
+
+    func testDynamicTransitionNotDefinedFailure() {
+
+        var prevState: MyState?
+        var error: Error?
+        machine.transition {
+            prevState = $0
+            error = $1
+        }
+
+        expect(error as? MachinusError).toEventually(equal(MachinusError.dynamicTransitionNotDefined))
+        expect(prevState).to(beNil())
+    }
 }

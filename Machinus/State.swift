@@ -21,12 +21,15 @@ open class State<T> where T: StateIdentifier {
 
     private let allowedTransitions: [T]
     private var transitionBarrier: () -> Bool = { true }
+    private var isGlobal = false
 
     var beforeLeaving: ((T) -> Void)?
     var afterLeaving: ((T) -> Void)?
     var beforeEntering: ((T) -> Void)?
     var afterEntering: ((T) -> Void)?
-    var transitionFactory: (() -> T)?
+    var dynamicTransition: (() -> T)?
+
+    // MARK: - Lifecycle
 
     /**
      Default initialiser.
@@ -45,8 +48,9 @@ open class State<T> where T: StateIdentifier {
      - Parameter toState: The state that is being queried.
      - Returns: true if a transition from this state to the other state is allowed.
     */
-    func canTransition(toState: T) -> Bool {
-        return transitionBarrier() && allowedTransitions.contains(toState)
+    func canTransition(toState: State<T>) -> Bool {
+        return toState.transitionBarrier()
+            && (toState.isGlobal || allowedTransitions.contains(toState.identifier))
     }
 
     // MARK: - Chainable functions
@@ -115,11 +119,24 @@ open class State<T> where T: StateIdentifier {
     /**
      Sets a closure that can be used to switch to the next state based on the closure's return value.
 
-     - Parameter transitionFactory: A closure whose return value defines the next state to transition to.
+     - Parameter dynamicTransition: A closure whose return value defines the next state to transition to.
      - Returns: self
     */
-    @discardableResult public func withDynamicTransitions( _ transitionFactory: @escaping () -> T) -> Self {
-        self.transitionFactory = transitionFactory
+    @discardableResult public func withDynamicTransitions( _ dynamicTransition: @escaping () -> T) -> Self {
+        self.dynamicTransition = dynamicTransition
+        return self
+    }
+
+    /**
+     When set, defines a state as being global.
+
+     Global states bypass the normal transition checking, thus allowing you to define states that are accessible from any other state.
+     Global states are suitable for things like errors.
+
+     - Returns: self.
+    */
+    @discardableResult public func makeGlobal() -> Self {
+        isGlobal = true
         return self
     }
 }
