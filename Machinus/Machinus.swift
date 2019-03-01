@@ -9,8 +9,14 @@
 /// Errors
 public enum MachinusError: Error {
 
+    /// Returned if a state change is requested to the current state and the sameStateAsError flag is set.
+    case alreadyInState
+
     /// Returned when a transition is requested to a state that was not registered.
     case unregisteredState
+
+    /// Returned when a transition barrier rejects a transition.
+    case transitionDenied
 
     /// Returned when the target state is not in the current state's allowed transition list.
     case illegalTransition
@@ -33,30 +39,36 @@ public protocol StateMachine {
     /// Defaulting to the main queue, this is the dispatch queue which transition will be executed on.
     var transitionQ: DispatchQueue { get set }
 
+    /// If true and a transition to the same state is requested an error will be thrown. Otherwise the completion is called with both values as nil.
+    var sameStateAsError: Bool { get set }
+
     /**
      Sets a closure which is executed before a transition is processed.
 
      - Parameter beforeTransition: The closure to execute.
-     - Parameter nextState: The state the machine is about to transition to.
+     - Parameter fromState: The state the machine just transitioned from.
+     - Parameter toState: The state the machine just transitioned to.
      - Returns: self.
     */
-    func beforeTransition(_ beforeTransition: @escaping (_ nextState: StateIdentifier) -> Void) -> Self
+    func beforeTransition(_ beforeTransition: @escaping (_ fromState: StateIdentifier, _ toState: StateIdentifier) -> Void) -> Self
 
     /**
      Sets a closure which is executed after a transition is processed.
 
      - Parameter afterTransition: The closure to execute.
-     - Parameter previousState: The state the machine just transitioned from.
+     - Parameter fromState: The state the machine just transitioned from.
+     - Parameter toState: The state the machine just transitioned to.
      - Returns: self.
      */
-    func afterTransition(_ beforeTransition: @escaping (_ previousState: StateIdentifier) -> Void) -> Self
+    func afterTransition(_ beforeTransition: @escaping (_ fromState: StateIdentifier, _ toState: StateIdentifier) -> Void) -> Self
 
     /**
      Execute a transition to a specific state.
 
      - Parameter toState: The state to transition to.
      - Parameter completion: A closure which is called after the transiton succeeds or fails.
-     - Parameter previousState: If the transition was successful, this is the previous state of the machine.
+     - Parameter fromState: The state the machine just transitioned from.
+     - Parameter toState: The state the machine just transitioned to.
      - Parameter error: If teh transition was not successful, this is the error generated.
      */
     func transition(toState: StateIdentifier, completion: @escaping (_ previousState: StateIdentifier?, _ error: Error?) -> Void)
@@ -77,34 +89,36 @@ public protocol StateMachine {
 // MARK: -
 
 /// A generalised implementation of the `StateMachine` protocol.
-open class Machinus<T>: StateMachine where T: StateIdentifier {
+public class Machinus<T>: StateMachine where T: StateIdentifier {
 
     private var current: State<T>
     private var states: [State<T>]
 
-    private var beforeTransition: ((T) -> Void)?
-    private var afterTransition: ((T) -> Void)?
+    private var beforeTransition: ((T, T) -> Void)?
+    private var afterTransition: ((T, T) -> Void)?
 
     public let name: String
+
+    private let transitionLock = NSLock()
 
     public var state: T {
         return current.identifier
     }
 
+    public var sameStateAsError: Bool = false
+
     public var transitionQ: DispatchQueue = DispatchQueue.main
 
     // MARK: - Lifecycle
 
-    init(name: String = UUID().uuidString + String(describing: T.self),
+    public init(name: String = UUID().uuidString + "<" + String(describing: T.self) + ">",
          withStates firstState: State<T>,
+         _ secondState: State<T>,
+         _ thirdState: State<T>,
          _ otherStates: State<T>...) {
 
-        guard !otherStates.isEmpty else {
-            fatalError("A state machine with only one state isn't much use.")
-        }
-
         self.name = name
-        let states:[State<T>] = [firstState] + otherStates
+        let states:[State<T>] = [firstState, secondState, thirdState] + otherStates
 
         self.states = states
         self.current = firstState
@@ -114,12 +128,12 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
         }
     }
 
-    public func beforeTransition(_ beforeTransition: @escaping (T) -> Void) -> Self {
+    public func beforeTransition(_ beforeTransition: @escaping (T, T) -> Void) -> Self {
         self.beforeTransition = beforeTransition
         return self
     }
 
-    public func afterTransition(_ afterTransition: @escaping (T) -> Void) -> Self {
+    public func afterTransition(_ afterTransition: @escaping (T, T) -> Void) -> Self {
         self.afterTransition = afterTransition
         return self
     }
@@ -136,10 +150,13 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
 
             guard let self = self else { return }
 
+            // Use a lock to defend against concurrent dispatch queue execution.
+            self.transitionLock.lock()
             guard let toState = self.current.dynamicTransition?() else {
                 completion(nil, MachinusError.dynamicTransitionNotDefined)
                 return
             }
+            self.transitionLock.unlock()
 
             self.runTransition(toState: toState, completion: completion)
         }
@@ -151,31 +168,51 @@ open class Machinus<T>: StateMachine where T: StateIdentifier {
         }
     }
 
-    private func runTransition(toState: T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
+    private func runTransition(toState toStateIdentifier: T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
 
-        let oldState = self.current
-        guard let newState = state(forIdentifier: toState) else {
-            completion(nil, MachinusError.unregisteredState)
+        // Use a lock to defend against concurrent dispatch queue execution.
+        transitionLock.lock()
+
+        let fromState = self.current
+        guard let newState = state(forIdentifier: toStateIdentifier) else {
+            completeTransition(completion, previousState: nil, error: MachinusError.unregisteredState)
             return
         }
 
-        guard oldState.canTransition(toState: newState) else {
-            completion(nil, MachinusError.illegalTransition)
+        let fromStateIdentifier = fromState.identifier
+
+        // If the state is the same state then do nothing.
+        guard fromStateIdentifier != toStateIdentifier else {
+            completeTransition(completion, previousState: nil, error: sameStateAsError ? MachinusError.alreadyInState : nil)
             return
         }
 
-        beforeTransition?(toState)
-        oldState.beforeLeaving?(toState)
-        newState.beforeEntering?(toState)
+        guard newState.transitionBarrier() else {
+            completeTransition(completion, previousState: nil, error: MachinusError.transitionDenied)
+            return
+        }
+
+        guard fromState.canTransition(toState: newState) else {
+            completeTransition(completion, previousState: nil, error: MachinusError.illegalTransition)
+            return
+        }
+
+        beforeTransition?(fromStateIdentifier, toStateIdentifier)
+        fromState.beforeLeaving?(toStateIdentifier)
+        newState.beforeEntering?(fromStateIdentifier)
 
         self.current = newState
 
-        let oldIdentifier = oldState.identifier
-        oldState.afterLeaving?(oldIdentifier)
-        newState.afterEntering?(oldIdentifier)
-        afterTransition?(oldIdentifier)
+        fromState.afterLeaving?(toStateIdentifier)
+        newState.afterEntering?(fromStateIdentifier)
+        afterTransition?(fromStateIdentifier, toStateIdentifier)
 
-        completion(oldIdentifier, nil)
+        completeTransition(completion, previousState: fromStateIdentifier, error: nil)
+    }
+
+    private func completeTransition(_ completion: @escaping (_ previousState: T?, _ error: Error?) -> Void, previousState: T?, error: Error?) {
+        completion(previousState, error)
+        transitionLock.unlock()
     }
 
     private func state(forIdentifier identifier: T) -> State<T>? {

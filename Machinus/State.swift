@@ -20,7 +20,6 @@ open class State<T> where T: StateIdentifier {
     public let identifier: T
 
     private let allowedTransitions: [T]
-    private var transitionBarrier: () -> Bool = { true }
     private var isGlobal = false
 
     var beforeLeaving: ((T) -> Void)?
@@ -28,6 +27,8 @@ open class State<T> where T: StateIdentifier {
     var beforeEntering: ((T) -> Void)?
     var afterEntering: ((T) -> Void)?
     var dynamicTransition: (() -> T)?
+
+    var transitionBarrier: () -> Bool = { true }
 
     // MARK: - Lifecycle
 
@@ -49,8 +50,7 @@ open class State<T> where T: StateIdentifier {
      - Returns: true if a transition from this state to the other state is allowed.
     */
     func canTransition(toState: State<T>) -> Bool {
-        return toState.transitionBarrier()
-            && (toState.isGlobal || allowedTransitions.contains(toState.identifier))
+        return toState.isGlobal || allowedTransitions.contains(toState.identifier)
     }
 
     // MARK: - Chainable functions
@@ -63,7 +63,7 @@ open class State<T> where T: StateIdentifier {
      - Parameter barrier: The closure which acts as a barrier to the transition.
      - Returns: self
      */
-    @discardableResult public func withEntryBarrier(_ barrier: @escaping () -> Bool) -> Self {
+    @discardableResult public func withTransitionBarrier(_ barrier: @escaping () -> Bool) -> Self {
         self.transitionBarrier = barrier
         return self
     }
@@ -84,10 +84,10 @@ open class State<T> where T: StateIdentifier {
      Chainable function that sets a closure to be called just after a transition leaves a state.
 
      - Parameter afterLeaving: A closure to execute after leaving the state.
-     - Parameter previousState: The state just transitioned from.
+     - Parameter nextState: The state about to be transitioned to.
      - Returns: self
      */
-    @discardableResult public func afterLeaving(_ afterLeaving: @escaping (_ previousState: T) -> Void) -> Self {
+    @discardableResult public func afterLeaving(_ afterLeaving: @escaping (_ nextState: T) -> Void) -> Self {
         self.afterLeaving = afterLeaving
         return self
     }
@@ -96,10 +96,10 @@ open class State<T> where T: StateIdentifier {
      Chainable function that sets a closure to be called just before a transition enters a state.
 
      - Parameter beforeEntering: A closure to execute before entering the state.
-     - Parameter nextState: The state just transitioned to.
+     - Parameter previousState: The state just transitioned from.
      - Returns: self
      */
-    @discardableResult public func beforeEntering(_ beforeEntering: @escaping (_ nextState: T) -> Void) -> Self {
+    @discardableResult public func beforeEntering(_ beforeEntering: @escaping (_ previousState: T) -> Void) -> Self {
         self.beforeEntering = beforeEntering
         return self
     }
