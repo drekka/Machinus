@@ -55,11 +55,6 @@ class StateTests: XCTestCase {
         expect(self.stateAA.canTransition(toState: self.stateB)).to(beFalse())
     }
 
-    func testCanTransitionHonoursBarrier() {
-        stateB.withEntryBarrier { false }
-        expect(self.stateA.canTransition(toState: self.stateB)).to(beFalse())
-    }
-
     func testCanTransitionHonoursGlobal() {
         stateA.makeGlobal()
         expect(self.stateB.canTransition(toState: self.stateA)).to(beTrue())
