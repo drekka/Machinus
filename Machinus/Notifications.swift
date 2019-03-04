@@ -16,16 +16,26 @@ private enum StateChange: String {
 public extension NotificationCenter {
 
     func postStateChange<S, T>(machine: S, oldState: T) where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
-        self.post(Notification.stateChangeNotification(machine: machine, oldState: oldState))
+        self.post(.stateChange(machine: machine, oldState: oldState))
     }
+
+    public func addStateChangeObserver<S, T>(_ observer: @escaping ((machine: S, fromState: T, toState: T)) -> Void) -> Any where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
+        return self.addObserver(forName: .stateChange, object: nil, queue: nil) { notification in
+            if let data:(machine: S, fromState: T, toState: T) = notification.stateChangeInfo() {
+                observer(data)
+            }
+        }
+    }
+}
+
+extension Notification.Name {
+    public static let stateChange = Notification.Name(StateChange.notificationName.rawValue)
 }
 
 extension Notification {
 
-    public static let stateChangeNotification = Notification.Name(StateChange.notificationName.rawValue)
-
-    static func stateChangeNotification<S, T>(machine: S, oldState: T) -> Notification where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
-        return Notification(name: self.stateChangeNotification, object: machine, userInfo: [
+    static func stateChange<S, T>(machine: S, oldState: T) -> Notification where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
+        return Notification(name: .stateChange, object: machine, userInfo: [
             StateChange.fromState.rawValue: oldState,
             StateChange.toState.rawValue: machine.state
             ])
