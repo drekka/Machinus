@@ -196,6 +196,8 @@ You cannot create a state machine without the `withStates` argument having at le
 * `sameStateAsError: Bool` (property)  - Default false. If true and you request a transition to a state when the machine is already in that state then the `MachinusError.alreadyInState` is passed to the completion closure. \
 When false (the default) the machine simply calls the transition completion with a `nil` previous state and a `nil` error. No transition or transition closures are executed.
 
+* `postNotifications: Bool` (property)  - Default false. If true, every time a transition is done, a matching state change notification will be sent. This allows objects which cannot directly access the machine to still know about state changes.
+
 * `transitionQueue: DispatchQueue` (property) - Default `DispatchQueue.main`. The dispatch queue that transition will be queued on.
 
 ## Checking the engine's state
@@ -299,7 +301,22 @@ In addition to actions which are attached to states, you can add the following a
 
 ### Listening to transition notifications
 
-Sometimes you want to be notified of a state change but it's in a state machines that's somewhere else in the code base. Machinus supports this by sending a notification once a transition has executed.
+Sometimes you want to be notified of a state change but it's in a state machines that's somewhere else in the code base. Machinus supports this by providing a property which enables the sending a notification once a transition has executed. Here's how to use it.
+
+```swift
+self.machine!.postNotifications = true
+self.machine!.transition(toState: .loggedIn) { _, _ in } 
+```
+
+And somewhere else in you code:
+
+```swift
+let o = NotificationCenter.default.addStateChangeObserver { (machine: Machinus<MyState>, fromState: MyState, toState: MyState) in
+    // Do something here.
+}
+```
+
+
 
 ## Resetting the engine
 

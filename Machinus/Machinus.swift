@@ -42,6 +42,9 @@ public protocol StateMachine {
     /// If true and a transition to the same state is requested an error will be thrown. Otherwise the completion is called with both values as nil.
     var sameStateAsError: Bool { get set }
 
+    /// If enabled, the engine will send notifications of a state change.
+    var postNotifications: Bool { get set }
+
     /**
      Sets a closure which is executed before a transition is processed.
 
@@ -106,6 +109,8 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
     }
 
     public var sameStateAsError: Bool = false
+
+    public var postNotifications: Bool = false
 
     public var transitionQ: DispatchQueue = DispatchQueue.main
 
@@ -206,6 +211,11 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         fromState.afterLeaving?(toStateIdentifier)
         newState.afterEntering?(fromStateIdentifier)
         afterTransition?(fromStateIdentifier, toStateIdentifier)
+
+        // Send the notification
+        if postNotifications {
+            NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
+        }
 
         completeTransition(completion, previousState: fromStateIdentifier, error: nil)
     }
