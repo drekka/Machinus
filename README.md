@@ -311,11 +311,12 @@ self.machine!.transition(toState: .loggedIn) { _, _ in }
 And somewhere else in you code:
 
 ```swift
-let o = NotificationCenter.default.addStateChangeObserver { (machine: Machinus<MyState>, fromState: MyState, toState: MyState) in
+let observer = NotificationCenter.default.addStateChangeObserver { [weak self] (stateMachine: Machinus<MyState>, fromState: MyState, toState: MyState) in
     // Do something here.
 }
 ```
 
+It's important to get the type of the states right in the closure as the observer will only call it for state machines of that type.
 
 
 ## Resetting the engine
