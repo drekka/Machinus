@@ -37,10 +37,14 @@ class NotificationTests: XCTestCase {
 
     func testSendingStateChangeNotification() {
 
-        var receivedNotification: Notification?
-        self.expectation(forNotification: .stateChange, object: nil) { notification in
-            receivedNotification = notification
-            return true
+        let exp = expectation(description: "Waiting for notification")
+        var observer: Any?
+        observer = NotificationCenter.default.addStateChangeObserver { [weak self] (sm: Machinus<MyState>, fromState: MyState, toState: MyState) in
+            NotificationCenter.default.removeObserver(observer!)
+            expect(sm) === self?.machine
+            expect(fromState) == .aaa
+            expect(toState) == .bbb
+            exp.fulfill()
         }
 
         self.machine!.postNotifications = true
@@ -51,13 +55,5 @@ class NotificationTests: XCTestCase {
         }
 
         waitForExpectations(timeout: 3.0)
-
-        expect(receivedNotification).toNot(beNil())
-        if let data:(machine: Machinus<MyState>, fromState: MyState, toState: MyState) = receivedNotification!.stateChangeInfo() {
-            expect(data.machine) === machine
-            expect(data.fromState) == .aaa
-            expect(data.toState) == .bbb
-        }
     }
-
 }

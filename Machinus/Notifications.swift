@@ -6,23 +6,42 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
+/// State change keys for notifications.
 private enum StateChange: String {
     case notificationName
     case fromState
     case toState
 }
 
-
+/// Marchinus extensions to the notification center.
 public extension NotificationCenter {
 
+    /**
+     Creates and sends the notification of a state change.
+
+     The notification sent contains the old state, new state and a machine reference in the user info data.
+
+     - Parameter machine: The machine that just had a state change.
+     - Parameter oldState: The previous state of the machine.
+    */
     func postStateChange<S, T>(machine: S, oldState: T) where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
         self.post(.stateChange(machine: machine, oldState: oldState))
     }
 
-    public func addStateChangeObserver<S, T>(_ observer: @escaping ((machine: S, fromState: T, toState: T)) -> Void) -> Any where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
+    /**
+     Adds a passed closure as a notification observer for state change notifications and returns the created notification center observer.
+
+     - Parameter observer: The closure that will be called when a state change notification is sent. This closure will only be called if a state change notification is received
+     that matches the types used by the state machine.
+
+     - Parameter machine: The machine that sent the notification.
+     - Parameter fromState: The previous state of the machine.
+     - Parameter toState: The new state of the machine.
+    */
+    public func addStateChangeObserver<S, T>(_ observer: @escaping (_ machine: S, _ fromState: T, _ toState: T) -> Void) -> Any where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
         return self.addObserver(forName: .stateChange, object: nil, queue: nil) { notification in
             if let data:(machine: S, fromState: T, toState: T) = notification.stateChangeInfo() {
-                observer(data)
+                observer(data.machine, data.fromState, data.toState)
             }
         }
     }
@@ -41,7 +60,7 @@ extension Notification {
             ])
     }
 
-    public func stateChangeInfo<S, T>() -> (machine: S, fromState: T, toState: T)? where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
+    func stateChangeInfo<S, T>() -> (machine: S, fromState: T, toState: T)? where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
 
         guard let machine = self.object as? S,
             let info = self.userInfo,
