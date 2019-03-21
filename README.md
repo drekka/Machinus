@@ -1,7 +1,24 @@
 # Machinus
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 [![Build Status](https://travis-ci.com/drekka/Machinus.svg?branch=master)](https://travis-ci.com/drekka/Machinus)
- 
+
+* [Quick guide][quickguide]
+* [States][states]
+    * [Adding actions to states][addingactionstostates]
+    * [Global states][globalstates]
+    * [Transition barriers][transitionbarriers]
+* [The state machine][thestatemachine]
+    * [Options][options]
+    * [Checking the engine's state][checkingtheenginesstate]
+    * [Transitions][transitions]
+        * [Transition execution][transitionexecution]
+        * [Manual transitions][manualtransitions]
+        * [Dynamic transitions][dynamictransitions]
+        * [Transition errors][transitionerrors]
+        * [Transition actions][transitionactions]
+        * [Listening to transition notifications][listeningtotransitionnotifications]
+    * [Resetting the engine][resettingtheengine]
+
 # What's a state machine?
 
 Often there are things in your app that have a number of unique *'states'*. For example - a user's states include being registered, logged out or logged in. You represent these states with booleans or enums, then add code which looks at these values to decide what to do. Displaying a home screen when the user logs in for example. 
@@ -42,7 +59,7 @@ With Machinus I decided to take a different approach. I use a protocol to provid
 
 ## 1. Install
 
-Currently Machinus is [Carthage](https://github.com/Carthage/Carthage) friendly. Just add this to your `Cartfile`:
+Machinus is [Carthage](https://github.com/Carthage/Carthage) friendly. Just add this to your `Cartfile`:
 
 ```
 github "drekka/Machinus"
@@ -52,7 +69,7 @@ And update your dependencies.
 
 ## 1. Declare your state identifiers
 
-The simplest way to start is to define the state identifiers using an enum. You can use other things, but an enum is the easiest. Whatever we use, we have to implement the `StateIdentifer` protocol so that Machinus knows they identify the states.
+First you need a way to identify the states of the machine. The simplest way to start is to use an enum. You can use other things, but an enum is the easiest. Then just implement the `StateIdentifer` protocol.
 
 ```swift
 enum UserState: StateIdentifier {
@@ -65,7 +82,7 @@ enum UserState: StateIdentifier {
 
 ## 2. Create the states and the machine
 
-Now we can create a set of states instances and a machine.
+Once we have our state identifiers, we can then create a series of `Now we can create a set of states`State<T>` instances which are used to configure the states and a machine instance to manage them.
 
 ```swift
 let initialising = State<UserState>(withIdentifier: .initialising, allowedTransitions: .registering, .loggedOut)
@@ -82,11 +99,11 @@ By default Machinus starts in the first state, so...
 machine.state == .initialising // = true
 ```
 
-Notice we compare with the state identifier. The `State` class is only used during setup. All Machinus functions that need a state argument use `StateIdentifer` instances.
+Notice that whist we create `State<T>` instances to configure the machine, we only need to use our `StateIdentifier`s to talk to it. `State<T>` and `StateIdentifier` implement `Equatable` and can be directly compared. In addition, all Machinus functions that have a state argument use the `StateIdentifer` instances. The goal of all of this is to give you the ease of configuration that classes provide through the `State<T>` class whilst still keeping comparisons and arguments simple. 
 
 ## 3. Add functionality
 
-Now let's add some function to execute when a state changes.
+Now let's do something when a state changes.
 
 ```swift
 let registering = State<UserState>(withIdentifier: .registering, allowedTransitions: .loggedIn)
@@ -95,9 +112,11 @@ let registering = State<UserState>(withIdentifier: .registering, allowedTransiti
 }
 ```
 
+This is just one hook. There are plenty more.
+
 ## 4. Transition
 
-Now we can request a transition.
+And finally lets tell the machine to change state. Something we call a 'Transition'.
 
 ```swift
 machine.transition(toState: .registering) { previousState, error in
@@ -109,13 +128,13 @@ Ta da!
 
 # States
 
-As per above, creating a state is just a matter of defining its identifier and creating an instance of `State<I>` with the `withIdentifier` and `allowedTransitions` arguments.
+As you saw in the quick guide, creating a state is just a matter of defining its identifier and creating an instance of the `State<I>` class.
 
 ```swift
 let initialising = State<UserState>(withIdentifier: .initialising, allowedTransitions: .registering, .loggedOut)
 ```
 
-`withIdentifier` is required. `allowedTransitions` is optional. 
+The `allowedTransitions` argument is where you can specify states that the machine is allowed to transition to from this one. If you try and transition to a state not in this list an error will be thrown.
 
 ## Adding actions to states
 
@@ -189,7 +208,7 @@ let machine = Machinus(
 
 The `name` argument is option and is used to uniquely identify the state machine in logs and debug sessions. If you don't set it, a UUID is generated appended with the type of the state identifier.
 
-You cannot create a state machine without the `withStates` argument having at least 3 state arguments. This is simple logic. A state machine is a waste of time if it only has 1 or two states. So the initialiser won't compile with anything less than 3. 
+You cannot create a state machine without at least 3 states. This is simple logic. A state machine is a waste of time if it only has 1 or two states. So the initialiser won't compile with anything less than 3. 
 
 ## Options
 
