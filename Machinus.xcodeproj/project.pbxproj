@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6C258BE122439DA40033F66E /* MachinusError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE022439DA40033F66E /* MachinusError.swift */; };
+		6C258BE322439DEF0033F66E /* StateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE222439DEF0033F66E /* StateMachine.swift */; };
 		6C83733B222D3C39001C57E6 /* NotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C83733A222D3C39001C57E6 /* NotificationTests.swift */; };
 		6C920DD5221187630084E6E8 /* Machinus.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C920DCB221187630084E6E8 /* Machinus.framework */; };
 		6C920DDA221187630084E6E8 /* MachinusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DD9221187630084E6E8 /* MachinusTests.swift */; };
@@ -31,6 +33,8 @@
 /* Begin PBXFileReference section */
 		4FB495C1221D2B6300782D6C /* .travis.yml */ = {isa = PBXFileReference; lastKnownFileType = text; path = .travis.yml; sourceTree = "<group>"; };
 		4FB495C2221D302C00782D6C /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		6C258BE022439DA40033F66E /* MachinusError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinusError.swift; sourceTree = "<group>"; };
+		6C258BE222439DEF0033F66E /* StateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachine.swift; sourceTree = "<group>"; };
 		6C83733A222D3C39001C57E6 /* NotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTests.swift; sourceTree = "<group>"; };
 		6C920DCB221187630084E6E8 /* Machinus.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Machinus.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C920DCE221187630084E6E8 /* Machinus.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Machinus.h; sourceTree = "<group>"; };
@@ -93,11 +97,13 @@
 		6C920DCD221187630084E6E8 /* Machinus */ = {
 			isa = PBXGroup;
 			children = (
-				6C920DCE221187630084E6E8 /* Machinus.h */,
 				6C920DCF221187630084E6E8 /* Info.plist */,
-				6C920DE522118BBF0084E6E8 /* State.swift */,
+				6C920DCE221187630084E6E8 /* Machinus.h */,
 				6C920DE722118BCB0084E6E8 /* Machinus.swift */,
+				6C258BE022439DA40033F66E /* MachinusError.swift */,
 				6CFBB323221D8B08007E6722 /* Notifications.swift */,
+				6C920DE522118BBF0084E6E8 /* State.swift */,
+				6C258BE222439DEF0033F66E /* StateMachine.swift */,
 			);
 			path = Machinus;
 			sourceTree = "<group>";
@@ -253,8 +259,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C258BE122439DA40033F66E /* MachinusError.swift in Sources */,
 				6CFBB324221D8B08007E6722 /* Notifications.swift in Sources */,
 				6C920DE622118BBF0084E6E8 /* State.swift in Sources */,
+				6C258BE322439DEF0033F66E /* StateMachine.swift in Sources */,
 				6C920DE822118BCB0084E6E8 /* Machinus.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -17,11 +17,13 @@ class MachinusTests: XCTestCase {
         case bbb
         case ccc
         case xxx
+        case background
     }
 
     private var stateA: State<MyState>!
     private var stateB: State<MyState>!
     private var stateC: State<MyState>!
+    private var backgroundState: State<MyState>!
 
     private var machine: Machinus<MyState>!
 
@@ -31,8 +33,10 @@ class MachinusTests: XCTestCase {
         self.stateA = State(withIdentifier: .aaa, allowedTransitions: .bbb)
         self.stateB = State(withIdentifier: .bbb)
         self.stateC = State(withIdentifier: .ccc)
+        self.backgroundState = State(withIdentifier: .background)
 
-        self.machine = Machinus(withStates: stateA, stateB, stateC)
+        self.machine = Machinus(withStates: stateA, stateB, stateC, backgroundState)
+        self.machine.backgroundState = .background
     }
 
     // MARK: - Lifecycle
@@ -179,21 +183,6 @@ class MachinusTests: XCTestCase {
         expect(prevState).to(beNil())
     }
 
-    func testTransitionExecutionUnknownStateError() {
-
-        var prevState: MyState?
-        var error: Error?
-        machine.transition(toState: .xxx) {
-            prevState = $0
-            error = $1
-        }
-
-        expect(error as? MachinusError).toEventually(equal(.unregisteredState))
-
-        expect(self.machine.state) == .aaa
-        expect(prevState).to(beNil())
-    }
-
     // MARK: - Dynamic transitions
 
     func testDynamicTransition() {
@@ -226,5 +215,46 @@ class MachinusTests: XCTestCase {
 
         expect(error as? MachinusError).toEventually(equal(.dynamicTransitionNotDefined))
         expect(prevState).to(beNil())
+    }
+
+    // MARK: - Background transitions
+
+    func testToBackgroundIsSuccessful() {
+        var called = false
+        machine.transition(toState: .background) {
+            expect($0) == .aaa
+            expect($1).to(beNil())
+            called = true
+        }
+        expect(called).toEventually(beTrue())
+    }
+
+    func testFromBackgroundIsSuccessful() {
+
+        machine.testSet(toState: .background)
+
+        var called = false
+        machine.transition(toState: .bbb) {
+            expect($0) == .background
+            expect($1).to(beNil())
+            called = true
+        }
+        expect(called).toEventually(beTrue())
+    }
+
+    func testMachineGoesIntoBackgroundOnNotification() {
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+        expect(self.machine.state).toEventually(equal(.background))
+    }
+
+    func testMachineReturnsToPreviousStateOnNotification() {
+
+        machine.testSet(toState: .bbb)
+
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+        expect(self.machine.state).toEventually(equal(.background))
+
+        NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
+        expect(self.machine.state).toEventually(equal(.bbb))
     }
 }
