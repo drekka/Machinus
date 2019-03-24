@@ -14,21 +14,22 @@ public protocol StateIdentifier: Hashable {}
 /**
  Defines the setup of an individual state.
  */
-open class State<T> where T: StateIdentifier {
+open class StateConfig<T> where T: StateIdentifier {
 
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
     public let identifier: T
 
+    // Accessed during transitions
+    private(set) var isFinal = false
+    private(set) var beforeLeaving: ((T) -> Void)?
+    private(set) var afterLeaving: ((T) -> Void)?
+    private(set) var beforeEntering: ((T) -> Void)?
+    private(set) var afterEntering: ((T) -> Void)?
+    private(set) var dynamicTransition: (() -> T)?
+    private(set) var transitionBarrier: () -> Bool = { true }
+
     private let allowedTransitions: [T]
     private var isGlobal = false
-
-    var beforeLeaving: ((T) -> Void)?
-    var afterLeaving: ((T) -> Void)?
-    var beforeEntering: ((T) -> Void)?
-    var afterEntering: ((T) -> Void)?
-    var dynamicTransition: (() -> T)?
-
-    var transitionBarrier: () -> Bool = { true }
 
     // MARK: - Lifecycle
 
@@ -38,7 +39,7 @@ open class State<T> where T: StateIdentifier {
      - Parameter identifier: The unique identifier of the state.
      - Parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
-    public init(withIdentifier identifier: T, allowedTransitions: T...) {
+    public init(identifier: T, allowedTransitions: T...) {
         self.identifier = identifier
         self.allowedTransitions = allowedTransitions
     }
@@ -48,8 +49,8 @@ open class State<T> where T: StateIdentifier {
 
      - Parameter toState: The state that is being queried.
      - Returns: true if a transition from this state to the other state is allowed.
-    */
-    func canTransition(toState: State<T>) -> Bool {
+     */
+    func canTransition(toState: StateConfig<T>) -> Bool {
         return toState.isGlobal || allowedTransitions.contains(toState.identifier)
     }
 
@@ -77,6 +78,7 @@ open class State<T> where T: StateIdentifier {
      */
     @discardableResult public func beforeLeaving(_ beforeLeaving: @escaping (_ nextState: T) -> Void) -> Self {
         self.beforeLeaving = beforeLeaving
+        validateFinalState()
         return self
     }
 
@@ -89,6 +91,7 @@ open class State<T> where T: StateIdentifier {
      */
     @discardableResult public func afterLeaving(_ afterLeaving: @escaping (_ nextState: T) -> Void) -> Self {
         self.afterLeaving = afterLeaving
+        validateFinalState()
         return self
     }
 
@@ -121,9 +124,10 @@ open class State<T> where T: StateIdentifier {
 
      - Parameter dynamicTransition: A closure whose return value defines the next state to transition to.
      - Returns: self
-    */
+     */
     @discardableResult public func withDynamicTransitions( _ dynamicTransition: @escaping () -> T) -> Self {
         self.dynamicTransition = dynamicTransition
+        validateFinalState()
         return self
     }
 
@@ -134,38 +138,63 @@ open class State<T> where T: StateIdentifier {
      Global states are suitable for things like errors.
 
      - Returns: self.
-    */
+     */
     @discardableResult public func makeGlobal() -> Self {
         isGlobal = true
         return self
+    }
+
+    /**
+     When set, defines a state as being a final state.
+
+     One a final state has been entered it cannot be left. Only a machine reset gets you out of a final start. Final states cannot have exit actions or dynamic transitions.
+
+     - Returns: self.
+     */
+    @discardableResult public func makeFinal() -> Self {
+        isFinal = true
+        validateFinalState()
+        return self
+    }
+
+    // MARK: - Internal
+
+    private func validateFinalState() {
+        if isFinal && (
+            !allowedTransitions.isEmpty
+                || beforeLeaving != nil
+                || afterLeaving != nil
+                || dynamicTransition != nil) {
+            fatalError("🤖 Illegal config, final state .\(identifier) cannot have allowedTransitions, leaving or dynamic transition closures.")
+        }
     }
 }
 
 // MARK: - Hashable
 
-extension State: Hashable {
+extension StateConfig: Hashable {
 
     public var hashValue: Int {
         return identifier.hashValue
     }
 
-    public static func == (lhs: State<T>, rhs: State<T>) -> Bool {
+    public static func == (lhs: StateConfig<T>, rhs: StateConfig<T>) -> Bool {
         return lhs.identifier == rhs.identifier
     }
 
-    public static func == (lhs: T, rhs: State<T>) -> Bool {
+    public static func == (lhs: T, rhs: StateConfig<T>) -> Bool {
         return lhs == rhs.identifier
     }
 
-    public static func == (lhs: State<T>, rhs: T) -> Bool {
+    public static func == (lhs: StateConfig<T>, rhs: T) -> Bool {
         return lhs.identifier == rhs
     }
 
-    public static func != (lhs: T, rhs: State<T>) -> Bool {
+    public static func != (lhs: T, rhs: StateConfig<T>) -> Bool {
         return lhs != rhs.identifier
     }
 
-    public static func != (lhs: State<T>, rhs: T) -> Bool {
+    public static func != (lhs: StateConfig<T>, rhs: T) -> Bool {
         return lhs.identifier != rhs
     }
 }

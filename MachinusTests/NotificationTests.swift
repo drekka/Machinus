@@ -16,26 +16,25 @@ class NotificationTests: XCTestCase {
         case aaa
         case bbb
         case ccc
-        case xxx
     }
 
-    private var stateA: State<MyState>!
-    private var stateB: State<MyState>!
-    private var stateC: State<MyState>!
+    private var stateA: StateConfig<MyState>!
+    private var stateB: StateConfig<MyState>!
+    private var stateC: StateConfig<MyState>! // Because machines must have 3 states.
 
     private var machine: Machinus<MyState>!
 
     override func setUp() {
         super.setUp()
 
-        self.stateA = State(withIdentifier: .aaa, allowedTransitions: .bbb)
-        self.stateB = State(withIdentifier: .bbb)
-        self.stateC = State(withIdentifier: .ccc)
+        self.stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb)
+        self.stateB = StateConfig(identifier: .bbb)
+        self.stateC = StateConfig(identifier: .ccc)
 
         self.machine = Machinus(withStates: stateA, stateB, stateC)
     }
 
-    func testSendingStateChangeNotification() {
+    func testWatchingStateChanges() {
 
         let exp = expectation(description: "Waiting for notification")
         var observer: Any?
