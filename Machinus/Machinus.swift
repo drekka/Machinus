@@ -11,8 +11,8 @@ import os
 /// A generalised implementation of the `StateMachine` protocol.
 public class Machinus<T>: StateMachine where T: StateIdentifier {
 
-    private var current: State<T>
-    private var states: [State<T>]
+    private var current: StateConfig<T>
+    private var states: [StateConfig<T>]
 
     private var beforeTransition: ((T, T) -> Void)?
     private var afterTransition: ((T, T) -> Void)?
@@ -31,9 +31,9 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         return current.identifier
     }
 
-    public var sameStateAsError: Bool = false
-
-    public var postNotifications: Bool = false
+    public var enableSameStateError = false
+    public var enableFinalStateTransitionError = false
+    public var postNotifications = false
 
     public var transitionQ: DispatchQueue = DispatchQueue.main
 
@@ -44,9 +44,14 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
                 return
             }
 
-            os_log("🤖 Setting .%@ as the background state.", type: .debug, String(describing: backgroundState))
-            _ = state(forIdentifier: backgroundState)
+            // Validate the state is known and not final
+            if state(forIdentifier: backgroundState).isFinal {
+                fatalError("More than one state is using the same identifier")
+            }
 
+            os_log("🤖 Setting .%@ as the background state.", type: .debug, String(describing: backgroundState))
+
+            // Adding notification watching for backgrounding and foregrounding.
             backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
                 guard let self = self else { return }
                 os_log("🤖 Transitioning to background state .%@", type: .debug, String(describing: backgroundState))
@@ -71,13 +76,13 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
     }
 
     public init(name: String = UUID().uuidString + "<" + String(describing: T.self) + ">",
-                withStates firstState: State<T>,
-                _ secondState: State<T>,
-                _ thirdState: State<T>,
-                _ otherStates: State<T>...) {
+                withStates firstState: StateConfig<T>,
+                _ secondState: StateConfig<T>,
+                _ thirdState: StateConfig<T>,
+                _ otherStates: StateConfig<T>...) {
 
         self.name = name
-        let states:[State<T>] = [firstState, secondState, thirdState] + otherStates
+        let states:[StateConfig<T>] = [firstState, secondState, thirdState] + otherStates
 
         self.states = states
         self.current = firstState
@@ -146,9 +151,9 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
 
     }
 
-    private func state(forIdentifier identifier: T) -> State<T> {
+    private func state(forIdentifier identifier: T) -> StateConfig<T> {
         guard let state = states.first(where: { $0.identifier == identifier }) else {
-            fatalError("🤖 .\(identifier) is an unknown state.")
+            fatalError("🤖 State .\(identifier) not registered.")
         }
         return state
     }
@@ -158,7 +163,7 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         return state == backgroundState || current == backgroundState
     }
 
-    private func preflightTransition(toState toStateIdentifier: T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) -> State<T>? {
+    private func preflightTransition(toState toStateIdentifier: T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) -> StateConfig<T>? {
 
         os_log("🤖 Pre-flighting transition ...", type: .debug)
 
@@ -167,15 +172,23 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         // If the state is the same state then do nothing.
         guard current != toStateIdentifier else {
             os_log("🤖 Already in state", type: .debug)
-            completion(nil, sameStateAsError ? MachinusError.alreadyInState : nil)
+            completion(nil, enableSameStateError ? MachinusError.alreadyInState : nil)
             return nil
         }
 
         // Ignore the rest of the pre-flight if we are about to transition to or from the background state.
         if isBackgroundTransition(toOrFromState: toStateIdentifier) {
-            os_log("🤖 Transitioning to or from background state .%@", type: .debug, String(describing: backgroundState))
+            os_log("🤖 Transitioning to or from background state .%@, ignoring allowed and barriers.", type: .debug, String(describing: backgroundState!))
             return newState
         }
+
+        // Check for a final state transition
+        if current.isFinal {
+            os_log("🤖 Final state, cannot transition", type: .error)
+            completion(nil, enableFinalStateTransitionError ? MachinusError.finalState : nil)
+            return nil
+        }
+
 
         guard newState.transitionBarrier() else {
             os_log("🤖 Transition barrier blocked transition", type: .debug)
@@ -192,7 +205,7 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         return newState
     }
 
-    private func executeTransition(toState: State<T>, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
+    private func executeTransition(toState: StateConfig<T>, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
 
         os_log("🤖 Executing transition ...", type: .debug)
 

@@ -11,19 +11,19 @@ enum UserState: StateIdentifier {
     case loggedOut
 }
 
-let initialising = State<UserState>(withIdentifier: .initialising, allowedTransitions: .registering, .loggedOut)
+let initialising = StateConfig<UserState>(identifier: .initialising, allowedTransitions: .registering, .loggedOut)
 
-let registering = State<UserState>(withIdentifier: .registering, allowedTransitions: .loggedIn)
+let registering = StateConfig<UserState>(identifier: .registering, allowedTransitions: .loggedIn)
     .afterEntering { _ in
         registerUser()
 }
 
-let loggedIn = State<UserState>(withIdentifier: .loggedIn, allowedTransitions: .loggedOut)
+let loggedIn = StateConfig<UserState>(identifier: .loggedIn, allowedTransitions: .loggedOut)
     .afterEntering { _ in
         displayUserHome()
 }
 
-let loggedOut = State<UserState>(withIdentifier: .loggedOut, allowedTransitions: .loggedIn)
+let loggedOut = StateConfig<UserState>(identifier: .loggedOut, allowedTransitions: .loggedIn)
     .afterEntering { _ in
         displayEnterPassword()
 }

@@ -18,24 +18,27 @@ class MachinusTests: XCTestCase {
         case ccc
         case xxx
         case background
+        case final
     }
 
-    private var stateA: State<MyState>!
-    private var stateB: State<MyState>!
-    private var stateC: State<MyState>!
-    private var backgroundState: State<MyState>!
+    private var stateA: StateConfig<MyState>!
+    private var stateB: StateConfig<MyState>!
+    private var stateC: StateConfig<MyState>!
+    private var backgroundState: StateConfig<MyState>!
+    private var finalState: StateConfig<MyState>!
 
     private var machine: Machinus<MyState>!
 
     override func setUp() {
         super.setUp()
 
-        self.stateA = State(withIdentifier: .aaa, allowedTransitions: .bbb)
-        self.stateB = State(withIdentifier: .bbb)
-        self.stateC = State(withIdentifier: .ccc)
-        self.backgroundState = State(withIdentifier: .background)
+        self.stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb, .final)
+        self.stateB = StateConfig(identifier: .bbb)
+        self.stateC = StateConfig(identifier: .ccc)
+        self.backgroundState = StateConfig(identifier: .background)
+        self.finalState = StateConfig(identifier: .final).makeFinal()
 
-        self.machine = Machinus(withStates: stateA, stateB, stateC, backgroundState)
+        self.machine = Machinus(withStates: stateA, stateB, stateC, backgroundState, finalState)
         self.machine.backgroundState = .background
     }
 
@@ -49,7 +52,7 @@ class MachinusTests: XCTestCase {
     }
 
     func testInitDetectsDuplicateStates() {
-        let stateAA = State<MyState>(withIdentifier: .aaa)
+        let stateAA = StateConfig<MyState>(identifier: .aaa)
         expect(_ = Machinus(withStates: self.stateA, self.stateB, self.stateC, stateAA)).to(throwAssertion())
     }
 
@@ -137,7 +140,7 @@ class MachinusTests: XCTestCase {
         var beforeTransitionCalled = false
         var completed = false
 
-        machine.sameStateAsError = true
+        machine.enableSameStateError = true
         machine
             .beforeTransition { _, _ in beforeTransitionCalled = true }
             .transition(toState: .aaa) { previousState, error in
@@ -219,6 +222,10 @@ class MachinusTests: XCTestCase {
 
     // MARK: - Background transitions
 
+    func testBackgroundStateMustBeKnown() {
+        expect(self.machine.backgroundState = .xxx).to(throwAssertion())
+    }
+
     func testToBackgroundIsSuccessful() {
         var called = false
         machine.transition(toState: .background) {
@@ -256,5 +263,36 @@ class MachinusTests: XCTestCase {
 
         NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
         expect(self.machine.state).toEventually(equal(.bbb))
+    }
+
+    // MARK: - Final states
+
+    func testFinalStateCannotBeBackgroundState() {
+        expect(self.machine.backgroundState = .final).to(throwAssertion())
+    }
+
+    func testFinalStateSilentyNOPs() {
+        machine.testSet(toState: .final)
+        var called = false
+        machine.transition(toState: .aaa) { result, error in
+            called = true
+            expect(result).to(beNil())
+            expect(error).to(beNil())
+        }
+
+        expect(called).toEventually(beTrue())
+    }
+
+    func testFinalStateThrows() {
+        machine.testSet(toState: .final)
+        machine.enableFinalStateTransitionError = true
+        var called = false
+        machine.transition(toState: .aaa) { result, error in
+            called = true
+            expect(result).to(beNil())
+            expect(error as? MachinusError) == MachinusError.finalState
+        }
+
+        expect(called).toEventually(beTrue())
     }
 }

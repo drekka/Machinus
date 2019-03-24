@@ -20,4 +20,7 @@ public enum MachinusError: Error {
 
     /// Thrown when there is no dynamic transition defined on the current state.
     case dynamicTransitionNotDefined
+
+    /// Thrown if youu attempt to transition from a final state.
+    case finalState
 }

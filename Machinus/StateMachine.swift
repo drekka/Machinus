@@ -21,7 +21,10 @@ public protocol StateMachine {
     var transitionQ: DispatchQueue { get set }
 
     /// If true and a transition to the same state is requested an error will be thrown. Otherwise the completion is called with both values as nil.
-    var sameStateAsError: Bool { get set }
+    var enableSameStateError: Bool { get set }
+
+    /// If true and a transition from a final state. Otherwise the completion is called with both values as nil.
+    var enableFinalStateTransitionError: Bool { get set }
 
     /// If enabled, the engine will send notifications of a state change.
     var postNotifications: Bool { get set }
