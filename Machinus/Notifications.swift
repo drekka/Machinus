@@ -38,7 +38,7 @@ public extension NotificationCenter {
      - Parameter fromState: The previous state of the machine.
      - Parameter toState: The new state of the machine.
     */
-    public func addStateChangeObserver<S, T>(_ observer: @escaping (_ machine: S, _ fromState: T, _ toState: T) -> Void) -> Any where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
+    func addStateChangeObserver<S, T>(_ observer: @escaping (_ machine: S, _ fromState: T, _ toState: T) -> Void) -> Any where S: StateMachine, S.StateIdentifier == T, T: StateIdentifier {
         return self.addObserver(forName: .stateChange, object: nil, queue: nil) { notification in
             if let data:(machine: S, fromState: T, toState: T) = notification.stateChangeInfo() {
                 observer(data.machine, data.fromState, data.toState)

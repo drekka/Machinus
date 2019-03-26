@@ -174,8 +174,8 @@ open class StateConfig<T> where T: StateIdentifier {
 
 extension StateConfig: Hashable {
 
-    public var hashValue: Int {
-        return identifier.hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(identifier)
     }
 
     public static func == (lhs: StateConfig<T>, rhs: StateConfig<T>) -> Bool {
