@@ -59,34 +59,4 @@ class StateTests: XCTestCase {
         stateA.makeGlobal()
         expect(self.stateB.canTransition(toState: self.stateA)).to(beTrue())
     }
-
-    // MARK: - Final states
-
-    func testFinalAndAllowedTransitionsThrowsFatalError() {
-        expect(_ = self.stateA.makeFinal()).to(throwAssertion())
-    }
-
-    func testFinalAndDynamicThrowsFatalError() {
-        expect(_ = self.stateA.makeFinal().withDynamicTransitions { return .bbb }).to(throwAssertion())
-    }
-
-    func testDynamicAndFinalThrowsFatalError() {
-        expect(_ = self.stateA.withDynamicTransitions { return .bbb }.makeFinal()).to(throwAssertion())
-    }
-
-    func testFinalAndBeforeLeavingThrowsFatalError() {
-        expect(_ = self.stateA.makeFinal().beforeLeaving { _ in }).to(throwAssertion())
-    }
-
-    func testBeforeLeavingAndFinalThrowsFatalError() {
-        expect(_ = self.stateA.beforeLeaving { _ in }.makeFinal()).to(throwAssertion())
-    }
-
-    func testFinalAndAfterLeavingThrowsFatalError() {
-        expect(_ = self.stateA.makeFinal().afterLeaving { _ in }).to(throwAssertion())
-    }
-
-    func testAfterLeavingAndFinalThrowsFatalError() {
-        expect(_ = self.stateA.afterLeaving { _ in }.makeFinal()).to(throwAssertion())
-    }
 }

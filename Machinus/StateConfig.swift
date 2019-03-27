@@ -20,7 +20,6 @@ open class StateConfig<T> where T: StateIdentifier {
     public let identifier: T
 
     // Accessed during transitions
-    private(set) var isFinal = false
     private(set) var beforeLeaving: ((T) -> Void)?
     private(set) var afterLeaving: ((T) -> Void)?
     private(set) var beforeEntering: ((T) -> Void)?
@@ -78,7 +77,6 @@ open class StateConfig<T> where T: StateIdentifier {
      */
     @discardableResult public func beforeLeaving(_ beforeLeaving: @escaping (_ nextState: T) -> Void) -> Self {
         self.beforeLeaving = beforeLeaving
-        validateFinalState()
         return self
     }
 
@@ -91,7 +89,6 @@ open class StateConfig<T> where T: StateIdentifier {
      */
     @discardableResult public func afterLeaving(_ afterLeaving: @escaping (_ nextState: T) -> Void) -> Self {
         self.afterLeaving = afterLeaving
-        validateFinalState()
         return self
     }
 
@@ -127,7 +124,6 @@ open class StateConfig<T> where T: StateIdentifier {
      */
     @discardableResult public func withDynamicTransitions( _ dynamicTransition: @escaping () -> T) -> Self {
         self.dynamicTransition = dynamicTransition
-        validateFinalState()
         return self
     }
 
@@ -144,30 +140,6 @@ open class StateConfig<T> where T: StateIdentifier {
         return self
     }
 
-    /**
-     When set, defines a state as being a final state.
-
-     One a final state has been entered it cannot be left. Only a machine reset gets you out of a final start. Final states cannot have exit actions or dynamic transitions.
-
-     - Returns: self.
-     */
-    @discardableResult public func makeFinal() -> Self {
-        isFinal = true
-        validateFinalState()
-        return self
-    }
-
-    // MARK: - Internal
-
-    private func validateFinalState() {
-        if isFinal && (
-            !allowedTransitions.isEmpty
-                || beforeLeaving != nil
-                || afterLeaving != nil
-                || dynamicTransition != nil) {
-            fatalError("🤖 Illegal config, final state .\(identifier) cannot have allowedTransitions, leaving or dynamic transition closures.")
-        }
-    }
 }
 
 // MARK: - Hashable

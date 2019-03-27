@@ -32,7 +32,6 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
     }
 
     public var enableSameStateError = false
-    public var enableFinalStateTransitionError = false
     public var postNotifications = false
 
     public var transitionQ: DispatchQueue = DispatchQueue.main
@@ -44,10 +43,8 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
                 return
             }
 
-            // Validate the state is known and not final
-            if state(forIdentifier: backgroundState).isFinal {
-                fatalError("More than one state is using the same identifier")
-            }
+            // Validate the state is known.
+            _ = state(forIdentifier: backgroundState)
 
             os_log("🤖 Setting .%@ as the background state.", type: .debug, String(describing: backgroundState))
 
@@ -88,7 +85,7 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         self.current = firstState
 
         if Set(self.states.map { $0.identifier }).count != self.states.count {
-            fatalError("More than one state is using the same identifier")
+            fatalError("🤖 More than one state is using the same identifier")
         }
     }
 
@@ -110,8 +107,7 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
 
     public func transition(completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
         guard let dynamicClosure = current.dynamicTransition else {
-            completion(nil, MachinusError.dynamicTransitionNotDefined)
-            return
+            fatalError("🤖 No dynamic transition defined")
         }
         runTransition(nextState: dynamicClosure, completion: completion)
     }
@@ -181,14 +177,6 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
             os_log("🤖 Transitioning to or from background state .%@, ignoring allowed and barriers.", type: .debug, String(describing: backgroundState!))
             return newState
         }
-
-        // Check for a final state transition
-        if current.isFinal {
-            os_log("🤖 Final state, cannot transition", type: .error)
-            completion(nil, enableFinalStateTransitionError ? MachinusError.finalState : nil)
-            return nil
-        }
-
 
         guard newState.transitionBarrier() else {
             os_log("🤖 Transition barrier blocked transition", type: .debug)
