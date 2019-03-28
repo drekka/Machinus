@@ -23,7 +23,7 @@ public protocol StateMachine {
     /// If true and a transition to the same state is requested an error will be thrown. Otherwise the completion is called with both values as nil.
     var enableSameStateError: Bool { get set }
 
-    /// If true and a transition from a final state. Otherwise the completion is called with both values as nil.
+    /// If enabled and a transition from a final state is attempted then a MachinusError.finalState error is returned. Otherwise a nil error is returned.
     var enableFinalStateTransitionError: Bool { get set }
 
     /// If enabled, the engine will send notifications of a state change.

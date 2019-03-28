@@ -18,9 +18,6 @@ public enum MachinusError: Error {
     /// Returned when the target state is not in the current state's allowed transition list.
     case illegalTransition
 
-    /// Thrown when there is no dynamic transition defined on the current state.
-    case dynamicTransitionNotDefined
-
-    /// Thrown if youu attempt to transition from a final state.
+    /// Thrown when a transition is requested from a final state.
     case finalState
 }

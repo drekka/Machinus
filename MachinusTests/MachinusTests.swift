@@ -208,16 +208,7 @@ class MachinusTests: XCTestCase {
     }
 
     func testDynamicTransitionNotDefinedFailure() {
-
-        var prevState: MyState?
-        var error: Error?
-        machine.transition {
-            prevState = $0
-            error = $1
-        }
-
-        expect(error as? MachinusError).toEventually(equal(.dynamicTransitionNotDefined))
-        expect(prevState).to(beNil())
+        expect(self.machine.transition { _, _ in }).toEventually(throwAssertion())
     }
 
     // MARK: - Background transitions
