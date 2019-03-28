@@ -6,6 +6,7 @@
 * [States](#states)
     * [Adding actions to states](#adding-actions-to-states)
     * [Global states](#global-states)
+    * [Final states](#final-states)
     * [Transition barriers](#transition-barriers)
     * [The background state](#the-background-state)
 * [The state machine](#the-state-machine)
@@ -158,6 +159,21 @@ let initialising = State<UserState>(withIdentifier: .appError)
     .makeGlobal()
 ```
 
+## Final states
+
+When you have a state with no allowed transitions it's an end state in that once entered, the machine cannot leave it. However [global states](#global-states) and the [background state](#the-background-state) can still be accessed.
+
+Setting a state as final lets Machinus know that it cannot be exited at all. 
+
+```swift
+let initialising = State<UserState>(withIdentifier: .appError)
+    .makeFinal()
+```
+
+If you try and transition to another state (including global states) from a final state then a `nil` error will be returned unless a flag is set on the machine to return `MachinusError.finalState` errors. The transition to the [background state](#the-background-state) also fails when the current state is final, however it always returns a `nil` error.
+
+Note: you can still [reset the machine](#resetting-the-engine) if you need to.
+
 ## Transition barriers
 
 Transition barriers can cancel a transition before it happens. They are useful where you have a number of places that can transition to a state and that state needs to have some rules that define if the transition is ok. Placing a barrier on the state provides this functionality.
@@ -212,6 +228,8 @@ The Machinus initialiser requires at least 3 states. This is simple logic. A sta
 ## Options
 
 * `enableSameStateError: Bool` (property)  - Default false. When true a transition when the machine is already in the requested state cancels the transition and returns the `MachinusError.alreadyInState` error. When false (the default) the transition is cancelled and both a `nil` previous state and a `nil` error.
+
+* `enableFinalStateTransitionError: Bool` (property)  - Default false. When true, an attempt to transition from a final state will generate a `MachinusError.finalState` error. When false, a `nil` will be returned. 
 
 * `postNotifications: Bool` (property)  - Default false. When true, every time a transition is done a matching state change notification will be sent. This allows objects which cannot directly access the machine to still know about state changes. See [Listening to transition notifications](#listening-to-transition-notifications)
 
