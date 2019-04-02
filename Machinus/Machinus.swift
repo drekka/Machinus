@@ -11,17 +11,21 @@ import os
 /// A generalised implementation of the `StateMachine` protocol.
 public class Machinus<T>: StateMachine where T: StateIdentifier {
 
-    private var current: StateConfig<T>
     private var states: [StateConfig<T>]
+
+    private var current: StateConfig<T>
+    private var restoreState: StateConfig<T>!
 
     private var beforeTransition: ((T, T) -> Void)?
     private var afterTransition: ((T, T) -> Void)?
 
     private let transitionLock = NSLock()
-    private var restoreState: T?
 
     private var backgroundObserver: Any?
     private var foregroundObserver: Any?
+
+    // Internal so we can set one for testing.
+    var notificationCenter: NotificationCenter = NotificationCenter.default
 
     // MARK: Public
 
@@ -45,25 +49,28 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
             }
 
             // Validate the state is known and not final
-            if state(forIdentifier: backgroundState).isFinal {
-                fatalError("🤖 More than one state is using the same identifier")
+            let background = state(forIdentifier: backgroundState)
+            if background.isFinal {
+                fatalError("🤖 Background state cannot have final set")
             }
 
             os_log("🤖 %@: Setting .%@ as the background state.", type: .debug, self.name, String(describing: backgroundState))
 
             // Adding notification watching for backgrounding and foregrounding.
-            backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
-                guard let self = self else { return }
-                os_log("🤖 %@: Transitioning to background state .%@", type: .debug, self.name, String(describing: backgroundState))
-                self.transition(toState: backgroundState) { restoreState, _ in
-                    self.restoreState = restoreState
+            backgroundObserver = notificationCenter.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+                self?.runSynchronised {
+                    guard let self = self else { return }
+                    self.transitionToBackground(state: background)
                 }
             }
-            foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
-                guard let self = self, let restoreState = self.restoreState else { return }
-                os_log("🤖 %@: Restoring state .%@", type: .debug, self.name, String(describing: backgroundState))
-                self.transition(toState: restoreState) { _, _ in
-                    self.restoreState = nil
+
+            foregroundObserver = notificationCenter.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
+                self?.runSynchronised {
+                    guard let self = self else { return }
+                    guard let restoreState = self.restoreState else {
+                        fatalError("🤖 Returning to foreground and no stored state to restore")
+                    }
+                    self.transitionToForeground(state: restoreState)
                 }
             }
         }
@@ -92,12 +99,12 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         }
     }
 
-    public func beforeTransition(_ beforeTransition: @escaping (T, T) -> Void) -> Self {
+    @discardableResult public func beforeTransition(_ beforeTransition: @escaping (T, T) -> Void) -> Self {
         self.beforeTransition = beforeTransition
         return self
     }
 
-    public func afterTransition(_ afterTransition: @escaping (T, T) -> Void) -> Self {
+    @discardableResult public func afterTransition(_ afterTransition: @escaping (T, T) -> Void) -> Self {
         self.afterTransition = afterTransition
         return self
     }
@@ -106,7 +113,7 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         current = states[0]
     }
 
-    // MARK: - Transitions
+    // MARK: - Public transitions
 
     public func transition(completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
         guard let dynamicClosure = current.dynamicTransition else {
@@ -123,31 +130,20 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
 
     private func stopWatchingNotifications() {
         if let obs = backgroundObserver {
-            NotificationCenter.default.removeObserver(obs)
+            notificationCenter.removeObserver(obs)
         }
         if let obs = foregroundObserver {
-            NotificationCenter.default.removeObserver(obs)
+            notificationCenter.removeObserver(obs)
         }
     }
 
-    private func runTransition(nextState: @escaping () -> T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
-
-        transitionQ.async { [weak self] in
-
-            guard let self = self else { return }
-
+    private func runSynchronised(block: @escaping () -> Void) {
+        transitionQ.async {
             // Use a lock to defend against concurrent dispatch queue execution.
             self.transitionLock.lock()
-            let toStateIdentifier = nextState()
-
-            os_log("🤖 %@: Transitioning to .%@", type: .debug, self.name, String(describing: toStateIdentifier))
-            if let toState = self.preflightTransition(toState: toStateIdentifier, completion: completion) {
-                self.executeTransition(toState: toState, completion: completion)
-            }
-
+            block()
             self.transitionLock.unlock()
         }
-
     }
 
     private func state(forIdentifier identifier: T) -> StateConfig<T> {
@@ -157,26 +153,41 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         return state
     }
 
-    private func isBackgroundTransition(toOrFromState state: T) -> Bool {
+    private func isBackgroundTransition(withToState state: T) -> Bool {
         guard let backgroundState = backgroundState else { return false }
         return state == backgroundState || current == backgroundState
     }
 
-    private func preflightTransition(toState toStateIdentifier: T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) -> StateConfig<T>? {
+    // MARK: - Transition logic
+
+    private func runTransition(nextState: @escaping () -> T, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
+        self.runSynchronised { [weak self] in
+
+            guard let self = self else { return }
+
+            let toStateIdentifier = nextState()
+            let toState = self.state(forIdentifier: toStateIdentifier)
+
+            os_log("🤖 %@: Transitioning to .%@", type: .debug, self.name, String(describing: toStateIdentifier))
+            if let toState = self.preflightTransition(toState: toState, completion: completion) {
+                self.transition(toState: toState, completion: completion)
+            }
+        }
+    }
+
+    private func preflightTransition(toState: StateConfig<T>, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) -> StateConfig<T>? {
 
         os_log("🤖 %@: Pre-flighting transition ...", type: .debug, self.name)
 
-        let newState = state(forIdentifier: toStateIdentifier)
-
         // If the state is the same state then do nothing.
-        guard current != toStateIdentifier else {
+        guard current != toState.identifier else {
             os_log("🤖 %@: Already in state", type: .debug, self.name)
             completion(nil, enableSameStateError ? MachinusError.alreadyInState : nil)
             return nil
         }
 
         // Ignore the rest of the pre-flight if we are about to transition to or from the background state.
-        if isBackgroundTransition(toOrFromState: toStateIdentifier) {
+        if isBackgroundTransition(withToState: toState.identifier) {
 
             // Background transitions from a final state are automatically ignored.
             if current.isFinal {
@@ -186,7 +197,7 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
             }
 
             os_log("🤖 %@: Transitioning to or from background state .%@, ignoring allowed and barriers.", type: .debug, self.name, String(describing: backgroundState!))
-            return newState
+            return toState
         }
 
         // Check for a final state transition
@@ -196,45 +207,59 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
             return nil
         }
 
-        guard newState.transitionBarrier() else {
+        guard toState.transitionBarrier() else {
             os_log("🤖 %@: Transition barrier blocked transition", type: .debug, self.name)
             completion(nil, MachinusError.transitionDenied)
             return nil
         }
 
-        guard current.canTransition(toState: newState) else {
+        guard current.canTransition(toState: toState) else {
             os_log("🤖 %@: Illegal transition", type: .debug, self.name)
             completion(nil, MachinusError.illegalTransition)
             return nil
         }
 
-        return newState
+        return toState
     }
 
-    private func executeTransition(toState: StateConfig<T>, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
+    private func transition(toState: StateConfig<T>, completion: @escaping (_ previousState: T?, _ error: Error?) -> Void) {
+
+        let fromState = current
 
         os_log("🤖 %@: Executing transition ...", type: .debug, self.name)
 
-        let toStateIdentifier = toState.identifier
-        let fromState = current
-        let fromStateIdentifier = fromState.identifier
-
-        beforeTransition?(fromStateIdentifier, toStateIdentifier)
-        fromState.beforeLeaving?(toStateIdentifier)
-        toState.beforeEntering?(fromStateIdentifier)
+        self.beforeTransition?(fromState.identifier, toState.identifier)
+        fromState.beforeLeaving?(toState.identifier)
+        toState.beforeEntering?(fromState.identifier)
 
         self.current = toState
 
-        fromState.afterLeaving?(toStateIdentifier)
-        toState.afterEntering?(fromStateIdentifier)
-        afterTransition?(fromStateIdentifier, toStateIdentifier)
+        fromState.afterLeaving?(toState.identifier)
+        toState.afterEntering?(fromState.identifier)
+        self.afterTransition?(fromState.identifier, toState.identifier)
 
-        // Send the notification
         if postNotifications {
-            NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
+            NotificationCenter.default.postStateChange(machine: self, oldState: fromState.identifier)
         }
+        completion(fromState.identifier, nil)
+    }
 
-        completion(fromStateIdentifier, nil)
+    private func transitionToBackground(state background: StateConfig<T>) {
+        os_log("🤖 %@: Transitioning to background state .%@", type: .debug, self.name, String(describing: background.identifier))
+        let fromState = current
+        self.restoreState = current
+        background.beforeEntering?(fromState.identifier)
+        self.current = background
+        background.afterEntering?(fromState.identifier)
+    }
+
+    private func transitionToForeground(state restoreState: StateConfig<T>) {
+        os_log("🤖 %@: Restoring state .%@", type: .debug, self.name, String(describing: restoreState.identifier))
+        let fromState = current
+        fromState.beforeLeaving?(restoreState.identifier)
+        self.current = restoreState
+        self.restoreState = nil
+        fromState.afterLeaving?(restoreState.identifier)
     }
 }
 
@@ -245,6 +270,10 @@ extension Machinus {
     func testSet(toState: T) {
         let state = self.state(forIdentifier: toState)
         current = state
+    }
+    func testSetBackground() {
+        restoreState = current
+        current = state(forIdentifier: backgroundState!)
     }
 }
 #endif
