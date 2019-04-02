@@ -166,7 +166,7 @@ When you have a state with no allowed transitions it's an end state in that once
 Setting a state as final lets Machinus know that it cannot be exited at all. 
 
 ```swift
-let initialising = State<UserState>(withIdentifier: .appError)
+let applicationError = State<UserState>(withIdentifier: .appError)
     .makeFinal()
 ```
 
@@ -191,7 +191,7 @@ The barrier closure is called before the transition executes. If the closure ret
 
 Something you need a machine to track whether the application is in the foreground or background. For example, so it can mask sensitive data with a privacy screen. Machinus supports this by allowing you to set a background state. 
 
-Once set, Machinus will automatically track the application's state. When the application goes into the background, Machinus will transition to this state. When the application returns to the foreground, Machinus automatically returns to the state it left. 
+Setting a background state tells Machinus to start tracking the application's state. When the application goes into the background, Machinus will transition to it's state. When the application returns to the foreground, Machinus then returns to the state it left. 
 
 ```swift
 self.backgroundState = StateConfig(identifier: .background)
@@ -208,10 +208,9 @@ self.machine.backgroundState = .background
 
 That's all you have to do. Note:
 
-* You don't need to add the background state to the `allowedTransition` lists of other states. Machinus bypasses this checking for transitions to and from the background state.
-* Transition barriers are not tested when entering or leaving the background state.
+* The background state by passes `allowedTransition`, transition barriers and other such checks.
 * Machinus remembers the current state before transitioning to the background state. It then automatically returns to that state when the application enters the foreground again.
-* All the normal actions are executed on both states.
+* Only the background state's `beforeEntering` and `afterLeaving` actions are called. None of the other states actions or the machines `beforeTransition` or `afterTransition` actions are called. This is because the transition to a background state is not viewed as a normal transition and also avoids all the other configured actions having to account for a background transition. 
 
 # The state machine
 

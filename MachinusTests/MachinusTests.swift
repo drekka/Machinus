@@ -10,16 +10,39 @@ import XCTest
 import Nimble
 @testable import Machinus
 
-class MachinusTests: XCTestCase {
+private enum MyState: StateIdentifier {
+    case aaa
+    case bbb
+    case ccc
+    case xxx
+    case background
+    case final
+}
 
-    enum MyState: StateIdentifier {
-        case aaa
-        case bbb
-        case ccc
-        case xxx
-        case background
-        case final
+private func ==(expectation: Nimble.Expectation<(MyState, MyState)>, toMatch: (MyState, MyState)?) {
+
+    var actual: (MyState, MyState)?
+
+    do {
+        actual = try expectation.expression.evaluate()
     }
+    catch let error {
+        expectation.verify(false, FailureMessage(stringValue: "Exception thrown \(error)"))
+    }
+
+    var actualDesc = "nil"
+    if let actual = actual {
+        actualDesc = "(\(String(describing: actual.0)), \(String(describing: actual.1)))"
+    }
+    var expectedDesc = "nil"
+    if let toMatch = toMatch {
+        expectedDesc = "(\(String(describing: toMatch.0)), \(String(describing: toMatch.1)))"
+    }
+
+    expectation.verify(actual?.0 == toMatch?.0 && actual?.1 == toMatch?.1, FailureMessage(stringValue: "expected \(expectedDesc), got <\(actualDesc)>"))
+}
+
+class MachinusTests: XCTestCase {
 
     private var stateA: StateConfig<MyState>!
     private var stateB: StateConfig<MyState>!
@@ -28,6 +51,17 @@ class MachinusTests: XCTestCase {
     private var finalState: StateConfig<MyState>!
 
     private var machine: Machinus<MyState>!
+
+    private var beforeTransition: (MyState, MyState)?
+
+    private var fromStateBeforeLeaving: MyState?
+    private var fromStateAfterLeaving: MyState?
+    private var toStateBeforeEntering: MyState?
+    private var toStateAfterEntering: MyState?
+
+    private var afterTransition: (MyState, MyState)?
+
+    private let notificationCenter = NotificationCenter()
 
     override func setUp() {
         super.setUp()
@@ -39,7 +73,38 @@ class MachinusTests: XCTestCase {
         self.finalState = StateConfig(identifier: .final).makeFinal()
 
         self.machine = Machinus(withStates: stateA, stateB, stateC, backgroundState, finalState)
+        self.machine.notificationCenter = self.notificationCenter
         self.machine.backgroundState = .background
+        [stateA, stateB, stateC, backgroundState].forEach {
+            $0.beforeLeaving { self.fromStateBeforeLeaving = $0 }
+                .afterLeaving {
+                    self.fromStateAfterLeaving = $0
+                    
+                }
+                .beforeEntering { self.toStateBeforeEntering = $0 }
+                .afterEntering { self.toStateAfterEntering = $0 }
+        }
+
+        finalState
+            .beforeEntering { self.toStateBeforeEntering = $0 }
+            .afterEntering { self.toStateAfterEntering = $0 }
+
+        self.machine
+            .beforeTransition { from, to in
+                self.beforeTransition = (from, to)
+            }
+            .afterTransition { from, to in
+                self.afterTransition = (from, to)
+        }
+
+        self.beforeTransition = nil
+
+        self.fromStateBeforeLeaving = nil
+        self.fromStateAfterLeaving = nil
+        self.toStateBeforeEntering = nil
+        self.toStateAfterEntering = nil
+
+        self.afterTransition = nil
     }
 
     // MARK: - Lifecycle
@@ -60,6 +125,13 @@ class MachinusTests: XCTestCase {
         machine.testSet(toState: .bbb)
         machine.reset()
         expect(self.machine.state) == .aaa
+
+        expect(self.beforeTransition).to(beNil())
+        expect(self.fromStateBeforeLeaving).to(beNil())
+        expect(self.fromStateAfterLeaving).to(beNil())
+        expect(self.toStateBeforeEntering).to(beNil())
+        expect(self.toStateAfterEntering).to(beNil())
+        expect(self.afterTransition).to(beNil())
     }
 
     // MARK: - Transitions
@@ -74,57 +146,22 @@ class MachinusTests: XCTestCase {
         }
 
         expect(self.machine.state).toEventually(equal(.bbb))
-
         expect(prevState) == .aaa
         expect(error).to(beNil())
-    }
 
-    func testTransitionHookExecution() {
-
-        var beforeTransitionFrom: MyState?
-        var beforeTransitionTo: MyState?
-        var beforeLeaving:MyState?
-        var beforeEntering:MyState?
-        var afterLeaving:MyState?
-        var afterEntering:MyState?
-        var afterTransitionFrom: MyState?
-        var afterTransitionTo: MyState?
-
-        stateA.beforeLeaving { beforeLeaving = $0 }
-            .afterLeaving {afterLeaving = $0 }
-        stateB.beforeEntering { beforeEntering = $0 }
-            .afterEntering { afterEntering = $0 }
-
-        machine
-            .beforeTransition { from, to in
-                beforeTransitionFrom = from
-                beforeTransitionTo = to
-            }
-            .afterTransition { from, to in
-                afterTransitionFrom = from
-                afterTransitionTo = to
-            }
-            .transition(toState: .bbb) { _, _ in }
-
-        expect(self.machine.state).toEventually(equal(.bbb))
-
-        expect(beforeTransitionFrom) == .aaa
-        expect(beforeTransitionTo) == .bbb
-        expect(beforeLeaving) == .bbb
-        expect(beforeEntering) == .aaa
-        expect(afterLeaving) == .bbb
-        expect(afterEntering) == .aaa
-        expect(afterTransitionFrom) == .aaa
-        expect(afterTransitionTo) == .bbb
+        expect(self.beforeTransition) == (.aaa, .bbb)
+        expect(self.fromStateBeforeLeaving) == .bbb
+        expect(self.fromStateAfterLeaving) == .bbb
+        expect(self.toStateBeforeEntering) == .aaa
+        expect(self.toStateAfterEntering) == .aaa
+        expect(self.afterTransition) == (.aaa, .bbb)
     }
 
     func testSameStateTransition() {
 
-        var beforeTransitionCalled = false
         var completed = false
 
         machine
-            .beforeTransition { _, _ in beforeTransitionCalled = true }
             .transition(toState: .aaa) { previousState, error in
                 expect(previousState).to(beNil())
                 expect(error).to(beNil())
@@ -132,17 +169,21 @@ class MachinusTests: XCTestCase {
         }
 
         expect(completed).toEventually(beTrue())
-        expect(beforeTransitionCalled).to(beFalse())
+
+        expect(self.beforeTransition).to(beNil())
+        expect(self.fromStateBeforeLeaving).to(beNil())
+        expect(self.fromStateAfterLeaving).to(beNil())
+        expect(self.toStateBeforeEntering).to(beNil())
+        expect(self.toStateAfterEntering).to(beNil())
+        expect(self.afterTransition).to(beNil())
     }
 
     func testSameStateTransitionWhenSameStateAsError() {
 
-        var beforeTransitionCalled = false
         var completed = false
 
         machine.enableSameStateError = true
         machine
-            .beforeTransition { _, _ in beforeTransitionCalled = true }
             .transition(toState: .aaa) { previousState, error in
                 expect(previousState).to(beNil())
                 expect(error as? MachinusError).to(equal(.alreadyInState))
@@ -150,7 +191,6 @@ class MachinusTests: XCTestCase {
         }
 
         expect(completed).toEventually(beTrue())
-        expect(beforeTransitionCalled).to(beFalse())
     }
 
     func testTransitionExecutionIllegalTransitionError() {
@@ -217,43 +257,35 @@ class MachinusTests: XCTestCase {
         expect(self.machine.backgroundState = .xxx).to(throwAssertion())
     }
 
-    func testToBackgroundIsSuccessful() {
-        var called = false
-        machine.transition(toState: .background) {
-            expect($0) == .aaa
-            expect($1).to(beNil())
-            called = true
-        }
-        expect(called).toEventually(beTrue())
-    }
-
-    func testFromBackgroundIsSuccessful() {
-
-        machine.testSet(toState: .background)
-
-        var called = false
-        machine.transition(toState: .bbb) {
-            expect($0) == .background
-            expect($1).to(beNil())
-            called = true
-        }
-        expect(called).toEventually(beTrue())
-    }
-
-    func testMachineGoesIntoBackgroundOnNotification() {
-        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-        expect(self.machine.state).toEventually(equal(.background))
-    }
-
-    func testMachineReturnsToPreviousStateOnNotification() {
+    func testMachineGoesIntoBackground() {
 
         machine.testSet(toState: .bbb)
 
-        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+        notificationCenter.post(name: UIApplication.didEnterBackgroundNotification, object: self)
         expect(self.machine.state).toEventually(equal(.background))
 
-        NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
+        expect(self.beforeTransition).to(beNil())
+        expect(self.fromStateBeforeLeaving).to(beNil())
+        expect(self.fromStateAfterLeaving).to(beNil())
+        expect(self.toStateBeforeEntering) == .bbb
+        expect(self.toStateAfterEntering) == .bbb
+        expect(self.afterTransition).to(beNil())
+    }
+
+    func testMachineGoesIntoForeground() {
+
+        machine.testSet(toState: .bbb)
+        machine.testSetBackground()
+
+        notificationCenter.post(name: UIApplication.willEnterForegroundNotification, object: self)
         expect(self.machine.state).toEventually(equal(.bbb))
+
+        expect(self.beforeTransition).to(beNil())
+        expect(self.fromStateBeforeLeaving) == .bbb
+        expect(self.fromStateAfterLeaving) == .bbb
+        expect(self.toStateBeforeEntering).to(beNil())
+        expect(self.toStateAfterEntering).to(beNil())
+        expect(self.afterTransition).to(beNil())
     }
 
     // MARK: - Final states
