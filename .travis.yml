@@ -1,10 +1,10 @@
 language: swift
 os: osx
-osx_image: xcode10.2
-xcode_sdk: iphonesimulator12.2
+osx_image: xcode11.0
+xcode_sdk: iphonesimulator13.0
 xcode_project: Machinus.xcodeproj
 xcode_scheme: Machinus
-xcode_destination: platform=iOS Simulator,OS=12.2,name=iPhone XR
+xcode_destination: platform=iOS Simulator,OS=13.0,name=iPhone XR
 env:
   global:
     - FRAMEWORK_NAME=Machinus
