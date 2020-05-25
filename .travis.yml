@@ -1,7 +1,7 @@
 language: swift
 os: osx
 osx_image: xcode11.4
-xcode_sdk: iphonesimulator13.0
+xcode_sdk: iPhoneSimulator13.4
 xcode_project: Machinus.xcodeproj
 xcode_scheme: Machinus
 xcode_destination: platform=iOS Simulator,OS=13.0,name=iPhone 11 Pro
