@@ -6,10 +6,12 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
+import Combine
+
 /**
  Defines a state machine.
  */
-public protocol StateMachine {
+public protocol StateMachine: Publisher {
 
     /// The type that identifies states.
     associatedtype StateIdentifier

@@ -2,6 +2,18 @@
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 [![Build Status](https://travis-ci.com/drekka/Machinus.svg?branch=master)](https://travis-ci.com/drekka/Machinus)
 
+## Quick feature list
+
+* App background aware
+* State change notifications
+* Combine Publishing of transitions
+* Pre and post transition closures
+* Transition barriers
+* Dynamic transitions
+* Transition queues
+
+## Index
+
 * [Quick guide](#quick-guide)
 * [States](#states)
     * [Adding actions to states](#adding-actions-to-states)
@@ -19,6 +31,7 @@
         * [Transition errors](#transition-errors)
         * [Transition actions](#transition-actions)
         * [Listening to transition notifications](#listening-to-transition-notifications)
+        * [Subscribing to transitions with Combine](#subscribing-to-transitions-with-combine)
     * [Resetting the engine](#resetting-the-engine)
 
 # What is a state machine?
@@ -348,6 +361,33 @@ let observer = NotificationCenter.default.addStateChangeObserver { [weak self] (
 
 Note: It's important to define the state types in the closure as the observer will only call it for state machines of that type.
 
+### Subscribing to transitions with Combine
+
+Machinus is Combine aware with the engine being a Combine `Publisher`. Here's an example of listen to state changes.
+
+```
+let state1 = StateConfig<State>(identifier: .first, allowedTransitions: .second)
+let state2 = StateConfig<State>(identifier: .second, allowedTransitions: .third)
+let state3 = StateConfig<State>(identifier: .third, allowedTransitions: .first)
+let machine = Machinus(withStates: state1, state2, state3)
+
+let initialState = self.expectation(description: "initial state")
+let firstTransition = self.expectation(description: "to second")
+let secondTransition = self.expectation(description: "to third")
+
+let cancellable = machine.sink { newState in
+    switch newState {
+    case .first:
+    case .second:
+    case .third:
+    }
+}
+
+machine.transition(toState: .second) { _,_ in }
+machine.transition(toState: .third) { _,_ in }
+```
+
+Note than on subscription, Machinus will immediately send the current state value so your code knows what it is.
 
 ## Resetting the engine
 

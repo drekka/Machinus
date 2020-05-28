@@ -7,9 +7,63 @@
 //
 
 import os
+import Combine
+
+private protocol Sendable {
+    associatedtype Value
+    func send(_ value: Value)
+}
 
 /// A generalised implementation of the `StateMachine` protocol.
 public class Machinus<T>: StateMachine where T: StateIdentifier {
+
+    public typealias Output = T
+    public typealias Failure = Never
+
+    public func receive<S>(subscriber: S) where S: Subscriber, S.Input == Output, S.Failure == Failure {
+        let subscription = StateMachineSubscription(subscriber: AnySubscriber(subscriber)) { [weak self] subscription in
+            os_log("🤖 %@: Subscription %@ cancelling", type: .debug, self?.name ?? "[No engine]", String(describing: subscription.combineIdentifier))
+            if let idx = self?.subscriptions.firstIndex(of: subscription) {
+                self?.subscriptions.remove(at: idx)
+            }
+        }
+        os_log("🤖 %@: Registering new subscription: %@", type: .debug, self.name, String(describing: subscription.combineIdentifier))
+        subscriptions.append(subscription)
+        subscriber.receive(subscription: subscription)
+        subscription.send(self.state)
+    }
+
+    private var subscriptions: [StateMachineSubscription] = []
+
+    private class StateMachineSubscription: Subscription, Equatable {
+
+        static func == (lhs: StateMachineSubscription, rhs: StateMachineSubscription) -> Bool {
+            return lhs.combineIdentifier == rhs.combineIdentifier
+        }
+
+        private var didCancel: ((StateMachineSubscription) -> Void)?
+        private var subscriber: AnySubscriber<T, Never>?
+
+        init(subscriber: AnySubscriber<T, Never>, didCancel: @escaping (StateMachineSubscription) -> Void) {
+            os_log("🤖 %@: Initing subscription for: %@", type: .debug, String(describing: self.combineIdentifier), String(describing: subscriber))
+            self.didCancel = didCancel
+            self.subscriber = subscriber
+        }
+
+        func request(_ demand: Subscribers.Demand) {}
+
+        func cancel() {
+            os_log("🤖 %@: Cancelling subscription", type: .debug, String(describing: self.combineIdentifier))
+            didCancel?(self)
+            didCancel = nil
+            subscriber = nil
+        }
+
+        func send(_ value: T) {
+            os_log("🤖 %@: sending '%@'", type: .debug, String(describing: self.combineIdentifier), String(describing: value))
+            _ = self.subscriber?.receive(value)
+        }
+    }
 
     private var states: [StateConfig<T>]
 
@@ -241,6 +295,9 @@ public class Machinus<T>: StateMachine where T: StateIdentifier {
         if postNotifications {
             NotificationCenter.default.postStateChange(machine: self, oldState: fromState.identifier)
         }
+
+        subscriptions.forEach { $0.send(toState.identifier)}
+
         completion(fromState.identifier, nil)
     }
 

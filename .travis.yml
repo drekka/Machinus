@@ -1,10 +1,11 @@
 language: swift
 os: osx
-osx_image: xcode10.2
-xcode_sdk: iphonesimulator12.2
+osx_image: xcode11.4
+xcode_sdk: iphonesimulator13.4
 xcode_project: Machinus.xcodeproj
 xcode_scheme: Machinus
-xcode_destination: platform=iOS Simulator,OS=12.2,name=iPhone XR
+language: swift
+xcode_destination: platform=iOS Simulator,OS=13.4.1,name=iPhone 11 Pro
 env:
   global:
     - FRAMEWORK_NAME=Machinus
@@ -14,7 +15,7 @@ before_install:
 before_script:
   # bootstrap the dependencies for the project
   # you can remove if you don't have dependencies
-  - carthage bootstrap --no-use-binaries
+  - carthage bootstrap --no-use-binaries --platform iOS
 before_deploy:
-  - carthage build --no-skip-current
+  - carthage build --no-skip-current --platform iOS
   - carthage archive $FRAMEWORK_NAME
