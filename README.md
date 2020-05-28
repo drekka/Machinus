@@ -365,21 +365,20 @@ Note: It's important to define the state types in the closure as the observer wi
 
 Machinus is Combine aware with the engine being a Combine `Publisher`. Here's an example of listen to state changes.
 
-```
+```swift
 let state1 = StateConfig<State>(identifier: .first, allowedTransitions: .second)
 let state2 = StateConfig<State>(identifier: .second, allowedTransitions: .third)
 let state3 = StateConfig<State>(identifier: .third, allowedTransitions: .first)
 let machine = Machinus(withStates: state1, state2, state3)
 
-let initialState = self.expectation(description: "initial state")
-let firstTransition = self.expectation(description: "to second")
-let secondTransition = self.expectation(description: "to third")
-
 let cancellable = machine.sink { newState in
     switch newState {
     case .first:
+        // Sent immediately on subscription.
     case .second:
+        // Second transiation has occured.
     case .third:
+        // third transiation has occured.
     }
 }
 
