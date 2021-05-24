@@ -6,12 +6,11 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
 @testable import Machinus
 import Nimble
+import XCTest
 
 class StateTests: XCTestCase {
-
     enum MyState: StateIdentifier {
         case aaa
         case bbb
@@ -22,9 +21,9 @@ class StateTests: XCTestCase {
     private var stateB: StateConfig<MyState>!
 
     override func setUp() {
-        self.stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb)
-        self.stateAA = StateConfig(identifier: .aaa)
-        self.stateB = StateConfig(identifier: .bbb)
+        stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb)
+        stateAA = StateConfig(identifier: .aaa)
+        stateB = StateConfig(identifier: .bbb)
     }
 
     // MARK: - Hashable
@@ -67,11 +66,11 @@ class StateTests: XCTestCase {
     }
 
     func testFinalAndDynamicThrowsFatalError() {
-        expect(_ = self.stateA.makeFinal().withDynamicTransitions { return .bbb }).to(throwAssertion())
+        expect(_ = self.stateA.makeFinal().withDynamicTransitions { .bbb }).to(throwAssertion())
     }
 
     func testDynamicAndFinalThrowsFatalError() {
-        expect(_ = self.stateA.withDynamicTransitions { return .bbb }.makeFinal()).to(throwAssertion())
+        expect(_ = self.stateA.withDynamicTransitions { .bbb }.makeFinal()).to(throwAssertion())
     }
 
     func testFinalAndBeforeLeavingThrowsFatalError() {

@@ -3,13 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		6C0BF6D0247BDB2300279FFA /* CombineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0BF6CF247BDB2300279FFA /* CombineTests.swift */; };
 		6C258BE122439DA40033F66E /* MachinusError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE022439DA40033F66E /* MachinusError.swift */; };
 		6C258BE322439DEF0033F66E /* StateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE222439DEF0033F66E /* StateMachine.swift */; };
+		6C707D49265BDC300068B2A7 /* Nimble.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C707D48265BDC300068B2A7 /* Nimble.xcframework */; };
 		6C83733B222D3C39001C57E6 /* NotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C83733A222D3C39001C57E6 /* NotificationTests.swift */; };
 		6C920DD5221187630084E6E8 /* Machinus.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C920DCB221187630084E6E8 /* Machinus.framework */; };
 		6C920DDA221187630084E6E8 /* MachinusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DD9221187630084E6E8 /* MachinusTests.swift */; };
@@ -17,7 +18,6 @@
 		6C920DE622118BBF0084E6E8 /* StateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE522118BBF0084E6E8 /* StateConfig.swift */; };
 		6C920DE822118BCB0084E6E8 /* Machinus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE722118BCB0084E6E8 /* Machinus.swift */; };
 		6C920DEA22118CB20084E6E8 /* StateConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE922118CB20084E6E8 /* StateConfigTests.swift */; };
-		6C920DEE221190B60084E6E8 /* Nimble.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C920DED221190B60084E6E8 /* Nimble.framework */; };
 		6CFBB324221D8B08007E6722 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFBB323221D8B08007E6722 /* Notifications.swift */; };
 /* End PBXBuildFile section */
 
@@ -37,6 +37,7 @@
 		6C0BF6CF247BDB2300279FFA /* CombineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineTests.swift; sourceTree = "<group>"; };
 		6C258BE022439DA40033F66E /* MachinusError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinusError.swift; sourceTree = "<group>"; };
 		6C258BE222439DEF0033F66E /* StateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachine.swift; sourceTree = "<group>"; };
+		6C707D48265BDC300068B2A7 /* Nimble.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Nimble.xcframework; path = Carthage/Build/Nimble.xcframework; sourceTree = "<group>"; };
 		6C83733A222D3C39001C57E6 /* NotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTests.swift; sourceTree = "<group>"; };
 		6C920DCB221187630084E6E8 /* Machinus.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Machinus.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C920DCE221187630084E6E8 /* Machinus.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Machinus.h; sourceTree = "<group>"; };
@@ -48,7 +49,6 @@
 		6C920DE722118BCB0084E6E8 /* Machinus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Machinus.swift; sourceTree = "<group>"; };
 		6C920DE922118CB20084E6E8 /* StateConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateConfigTests.swift; sourceTree = "<group>"; };
 		6C920DEB221190110084E6E8 /* Cartfile.private */ = {isa = PBXFileReference; lastKnownFileType = text; path = Cartfile.private; sourceTree = "<group>"; };
-		6C920DED221190B60084E6E8 /* Nimble.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Nimble.framework; path = Carthage/Build/iOS/Nimble.framework; sourceTree = "<group>"; };
 		6CFBB323221D8B08007E6722 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 		6CFBB3252226B3DD007E6722 /* Machinus.playground */ = {isa = PBXFileReference; lastKnownFileType = file.playground; path = Machinus.playground; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.swift; };
 /* End PBXFileReference section */
@@ -65,7 +65,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C920DEE221190B60084E6E8 /* Nimble.framework in Frameworks */,
+				6C707D49265BDC300068B2A7 /* Nimble.xcframework in Frameworks */,
 				6C920DD5221187630084E6E8 /* Machinus.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -125,7 +125,7 @@
 		6C920DEC221190B50084E6E8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				6C920DED221190B60084E6E8 /* Nimble.framework */,
+				6C707D48265BDC300068B2A7 /* Nimble.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -188,7 +188,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1010;
-				LastUpgradeCheck = 1010;
+				LastUpgradeCheck = 1250;
 				ORGANIZATIONNAME = "Derek Clarkson";
 				TargetAttributes = {
 					6C920DCA221187630084E6E8 = {
@@ -202,7 +202,7 @@
 				};
 			};
 			buildConfigurationList = 6C920DC5221187630084E6E8 /* Build configuration list for PBXProject "Machinus" */;
-			compatibilityVersion = "Xcode 9.3";
+			compatibilityVersion = "Xcode 12.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -246,7 +246,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(PROJECT_DIR)/Carthage/Build/iOS/Nimble.framework",
+				"$(PROJECT_DIR)/Carthage/Build/Nimble.framework",
 			);
 			name = "Copy frameworks";
 			outputFileListPaths = (
@@ -255,7 +255,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "carthage copy-frameworks\n";
+			shellScript = "# carthage copy-frameworks\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -320,6 +320,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -384,6 +385,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -435,10 +437,11 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = au.com.derekclarkson.Machinus;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -464,10 +467,11 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = au.com.derekclarkson.Machinus;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -481,7 +485,7 @@
 				DEVELOPMENT_TEAM = 3MHZ7974Y8;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Carthage/Build/iOS",
+					"$(PROJECT_DIR)/Carthage/Build",
 				);
 				INFOPLIST_FILE = MachinusTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -505,7 +509,7 @@
 				DEVELOPMENT_TEAM = 3MHZ7974Y8;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Carthage/Build/iOS",
+					"$(PROJECT_DIR)/Carthage/Build",
 				);
 				INFOPLIST_FILE = MachinusTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;

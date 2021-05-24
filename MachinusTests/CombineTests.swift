@@ -6,8 +6,8 @@
 //  Copyright © 2020 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
 import Machinus
+import XCTest
 
 enum State: StateIdentifier {
     case first
@@ -16,7 +16,6 @@ enum State: StateIdentifier {
 }
 
 class CombineTests: XCTestCase {
-
     var machine: Machinus<State>!
 
     override func setUp() {
@@ -27,10 +26,9 @@ class CombineTests: XCTestCase {
     }
 
     func testReceivingUpdates() {
-
-        let initialState = self.expectation(description: "initial state")
-        let firstTransition = self.expectation(description: "to second")
-        let secondTransition = self.expectation(description: "to third")
+        let initialState = expectation(description: "initial state")
+        let firstTransition = expectation(description: "to second")
+        let secondTransition = expectation(description: "to third")
 
         let cancellable = machine.sink { newState in
             print("Received " + String(describing: newState))
@@ -45,16 +43,15 @@ class CombineTests: XCTestCase {
         }
 
         withExtendedLifetime(cancellable) {
-            machine.transition(toState: .second) { _,_ in }
-            machine.transition(toState: .third) { _,_ in }
+            machine.transition(toState: .second) { _, _ in }
+            machine.transition(toState: .third) { _, _ in }
 
             waitForExpectations(timeout: 3.0)
         }
     }
 
     func testCancelling() {
-
-        let firstTransition = self.expectation(description: "to second")
+        let firstTransition = expectation(description: "to second")
 
         let cancellable = machine.sink { newState in
             if newState == .second {
@@ -65,18 +62,17 @@ class CombineTests: XCTestCase {
         }
 
         withExtendedLifetime(cancellable) {
-            machine.transition(toState: .second) { _,_ in }
+            machine.transition(toState: .second) { _, _ in }
             waitForExpectations(timeout: 3.0)
 
             cancellable.cancel()
-            machine.transition(toState: .third) { _,_ in }
+            machine.transition(toState: .third) { _, _ in }
         }
     }
 
     func testMultipleSubscribers() {
-
-        let firstSubscriberTransition = self.expectation(description: "1st to second")
-        let secondSubscriberTransition = self.expectation(description: "2nd to second")
+        let firstSubscriberTransition = expectation(description: "1st to second")
+        let secondSubscriberTransition = expectation(description: "2nd to second")
 
         let cancellables = [
             machine.sink { newState in
@@ -88,11 +84,11 @@ class CombineTests: XCTestCase {
                 if newState == .second {
                     secondSubscriberTransition.fulfill()
                 }
-            }
+            },
         ]
 
         withExtendedLifetime(cancellables) {
-            machine.transition(toState: .second) { _,_ in }
+            machine.transition(toState: .second) { _, _ in }
             waitForExpectations(timeout: 3.0)
         }
     }

@@ -6,9 +6,9 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
-import Nimble
 @testable import Machinus
+import Nimble
+import XCTest
 
 private enum MyState: StateIdentifier {
     case aaa
@@ -19,14 +19,12 @@ private enum MyState: StateIdentifier {
     case final
 }
 
-private func ==(expectation: Nimble.Expectation<(MyState, MyState)>, toMatch: (MyState, MyState)?) {
-
+private func == (expectation: Nimble.Expectation<(MyState, MyState)>, toMatch: (MyState, MyState)?) {
     var actual: (MyState, MyState)?
 
     do {
         actual = try expectation.expression.evaluate()
-    }
-    catch let error {
+    } catch {
         expectation.verify(false, FailureMessage(stringValue: "Exception thrown \(error)"))
     }
 
@@ -43,7 +41,6 @@ private func ==(expectation: Nimble.Expectation<(MyState, MyState)>, toMatch: (M
 }
 
 class MachinusTests: XCTestCase {
-
     private var stateA: StateConfig<MyState>!
     private var stateB: StateConfig<MyState>!
     private var stateC: StateConfig<MyState>!
@@ -66,20 +63,19 @@ class MachinusTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        self.stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb, .final)
-        self.stateB = StateConfig(identifier: .bbb)
-        self.stateC = StateConfig(identifier: .ccc)
-        self.backgroundState = StateConfig(identifier: .background)
-        self.finalState = StateConfig(identifier: .final).makeFinal()
+        stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb, .final)
+        stateB = StateConfig(identifier: .bbb)
+        stateC = StateConfig(identifier: .ccc)
+        backgroundState = StateConfig(identifier: .background)
+        finalState = StateConfig(identifier: .final).makeFinal()
 
-        self.machine = Machinus(withStates: stateA, stateB, stateC, backgroundState, finalState)
-        self.machine.notificationCenter = self.notificationCenter
-        self.machine.backgroundState = .background
+        machine = Machinus(withStates: stateA, stateB, stateC, backgroundState, finalState)
+        machine.notificationCenter = notificationCenter
+        machine.backgroundState = .background
         [stateA, stateB, stateC, backgroundState].forEach {
             $0.beforeLeaving { self.fromStateBeforeLeaving = $0 }
                 .afterLeaving {
                     self.fromStateAfterLeaving = $0
-                    
                 }
                 .beforeEntering { self.toStateBeforeEntering = $0 }
                 .afterEntering { self.toStateAfterEntering = $0 }
@@ -89,29 +85,29 @@ class MachinusTests: XCTestCase {
             .beforeEntering { self.toStateBeforeEntering = $0 }
             .afterEntering { self.toStateAfterEntering = $0 }
 
-        self.machine
+        machine
             .beforeTransition { from, to in
                 self.beforeTransition = (from, to)
             }
             .afterTransition { from, to in
                 self.afterTransition = (from, to)
-        }
+            }
 
-        self.beforeTransition = nil
+        beforeTransition = nil
 
-        self.fromStateBeforeLeaving = nil
-        self.fromStateAfterLeaving = nil
-        self.toStateBeforeEntering = nil
-        self.toStateAfterEntering = nil
+        fromStateBeforeLeaving = nil
+        fromStateAfterLeaving = nil
+        toStateBeforeEntering = nil
+        toStateAfterEntering = nil
 
-        self.afterTransition = nil
+        afterTransition = nil
     }
 
     // MARK: - Lifecycle
 
     func testName() {
         func hex(_ length: Int) -> String {
-            return "[0-9A-Za-z]{\(length)}"
+            "[0-9A-Za-z]{\(length)}"
         }
         expect(self.machine.name).to(match(hex(8) + "-" + hex(4) + "-" + hex(4) + "-" + hex(4) + "-" + hex(12) + "<MyState>"))
     }
@@ -137,7 +133,6 @@ class MachinusTests: XCTestCase {
     // MARK: - Transitions
 
     func testTransitionExecution() {
-
         var prevState: MyState?
         var error: Error?
         machine.transition(toState: .bbb) {
@@ -158,7 +153,6 @@ class MachinusTests: XCTestCase {
     }
 
     func testSameStateTransition() {
-
         var completed = false
 
         machine
@@ -166,7 +160,7 @@ class MachinusTests: XCTestCase {
                 expect(previousState).to(beNil())
                 expect(error).to(beNil())
                 completed = true
-        }
+            }
 
         expect(completed).toEventually(beTrue())
 
@@ -179,7 +173,6 @@ class MachinusTests: XCTestCase {
     }
 
     func testSameStateTransitionWhenSameStateAsError() {
-
         var completed = false
 
         machine.enableSameStateError = true
@@ -188,13 +181,12 @@ class MachinusTests: XCTestCase {
                 expect(previousState).to(beNil())
                 expect(error as? MachinusError).to(equal(.alreadyInState))
                 completed = true
-        }
+            }
 
         expect(completed).toEventually(beTrue())
     }
 
     func testTransitionExecutionIllegalTransitionError() {
-
         machine.testSet(toState: .bbb)
 
         var prevState: MyState?
@@ -211,8 +203,7 @@ class MachinusTests: XCTestCase {
     }
 
     func testTransitionExecutionStateBarrierRejectsTransition() {
-
-        stateB.withTransitionBarrier { return false }
+        stateB.withTransitionBarrier { false }
         var prevState: MyState?
         var error: Error?
         machine.transition(toState: .bbb) {
@@ -229,9 +220,8 @@ class MachinusTests: XCTestCase {
     // MARK: - Dynamic transitions
 
     func testDynamicTransition() {
-
         stateA.withDynamicTransitions {
-            return .bbb
+            .bbb
         }
 
         var prevState: MyState?
@@ -258,7 +248,6 @@ class MachinusTests: XCTestCase {
     }
 
     func testMachineGoesIntoBackground() {
-
         machine.testSet(toState: .bbb)
 
         notificationCenter.post(name: UIApplication.didEnterBackgroundNotification, object: self)
@@ -273,7 +262,6 @@ class MachinusTests: XCTestCase {
     }
 
     func testMachineGoesIntoForeground() {
-
         machine.testSet(toState: .bbb)
         machine.testSetBackground()
 

@@ -12,7 +12,6 @@ import Combine
  Defines a state machine.
  */
 public protocol StateMachine: Publisher {
-
     /// The type that identifies states.
     associatedtype StateIdentifier
 

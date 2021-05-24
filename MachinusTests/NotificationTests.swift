@@ -6,12 +6,11 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
 import Machinus
 import Nimble
+import XCTest
 
 class NotificationTests: XCTestCase {
-
     enum MyState: StateIdentifier {
         case aaa
         case bbb
@@ -27,15 +26,14 @@ class NotificationTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        self.stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb)
-        self.stateB = StateConfig(identifier: .bbb)
-        self.stateC = StateConfig(identifier: .ccc)
+        stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb)
+        stateB = StateConfig(identifier: .bbb)
+        stateC = StateConfig(identifier: .ccc)
 
-        self.machine = Machinus(withStates: stateA, stateB, stateC)
+        machine = Machinus(withStates: stateA, stateB, stateC)
     }
 
     func testWatchingStateChanges() {
-
         let exp = expectation(description: "Waiting for notification")
         var observer: Any?
         observer = NotificationCenter.default.addStateChangeObserver { [weak self] (sm: Machinus<MyState>, fromState: MyState, toState: MyState) in
@@ -46,8 +44,8 @@ class NotificationTests: XCTestCase {
             exp.fulfill()
         }
 
-        self.machine!.postNotifications = true
-        self.machine!.transition(toState: .bbb) { _, error in
+        machine!.postNotifications = true
+        machine!.transition(toState: .bbb) { _, error in
             if let error = error {
                 XCTFail(error.localizedDescription)
             }

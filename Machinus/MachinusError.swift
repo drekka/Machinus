@@ -8,7 +8,6 @@
 
 /// State machine errors.
 public enum MachinusError: Error {
-
     /// Returned if a state change is requested to the current state and the sameStateAsError flag is set.
     case alreadyInState
 
