@@ -17,13 +17,13 @@ enum State: StateIdentifier {
 
 class CombineTests: XCTestCase {
 
-    var machine: Machinus<State>!
+    var machine: StateMachine<State>!
 
     override func setUp() {
-        let state1 = StateConfig<State>(identifier: .first, allowedTransitions: .second)
-        let state2 = StateConfig<State>(identifier: .second, allowedTransitions: .third)
-        let state3 = StateConfig<State>(identifier: .third, allowedTransitions: .first)
-        machine = Machinus(withStates: state1, state2, state3)
+        let state1 = StateConfig<State>(.first, allowedTransitions: .second)
+        let state2 = StateConfig<State>(.second, allowedTransitions: .third)
+        let state3 = StateConfig<State>(.third, allowedTransitions: .first)
+        machine = StateMachine(withStates: state1, state2, state3)
     }
 
     func testReceivingUpdates() {
@@ -45,8 +45,8 @@ class CombineTests: XCTestCase {
         }
 
         withExtendedLifetime(cancellable) {
-            machine.transition(toState: .second) { _,_ in }
-            machine.transition(toState: .third) { _,_ in }
+            machine.transition(to: .second)
+            machine.transition(to: .third)
 
             waitForExpectations(timeout: 3.0)
         }
@@ -65,11 +65,11 @@ class CombineTests: XCTestCase {
         }
 
         withExtendedLifetime(cancellable) {
-            machine.transition(toState: .second) { _,_ in }
+            machine.transition(to: .second)
             waitForExpectations(timeout: 3.0)
 
             cancellable.cancel()
-            machine.transition(toState: .third) { _,_ in }
+            machine.transition(to: .third)
         }
     }
 
@@ -92,7 +92,7 @@ class CombineTests: XCTestCase {
         ]
 
         withExtendedLifetime(cancellables) {
-            machine.transition(toState: .second) { _,_ in }
+            machine.transition(to: .second)
             waitForExpectations(timeout: 3.0)
         }
     }

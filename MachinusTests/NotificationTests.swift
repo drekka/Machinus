@@ -22,23 +22,23 @@ class NotificationTests: XCTestCase {
     private var stateB: StateConfig<MyState>!
     private var stateC: StateConfig<MyState>! // Because machines must have 3 states.
 
-    private var machine: Machinus<MyState>!
+    private var machine: StateMachine<MyState>!
 
     override func setUp() {
         super.setUp()
 
-        self.stateA = StateConfig(identifier: .aaa, allowedTransitions: .bbb)
-        self.stateB = StateConfig(identifier: .bbb)
-        self.stateC = StateConfig(identifier: .ccc)
+        self.stateA = StateConfig(.aaa, allowedTransitions: .bbb)
+        self.stateB = StateConfig(.bbb)
+        self.stateC = StateConfig(.ccc)
 
-        self.machine = Machinus(withStates: stateA, stateB, stateC)
+        self.machine = StateMachine(withStates: stateA, stateB, stateC)
     }
 
     func testWatchingStateChanges() {
 
         let exp = expectation(description: "Waiting for notification")
         var observer: Any?
-        observer = NotificationCenter.default.addStateChangeObserver { [weak self] (sm: Machinus<MyState>, fromState: MyState, toState: MyState) in
+        observer = NotificationCenter.default.addStateChangeObserver { [weak self] (sm: StateMachine<MyState>, fromState: MyState, toState: MyState) in
             NotificationCenter.default.removeObserver(observer!)
             expect(sm) === self?.machine
             expect(fromState) == .aaa
@@ -47,8 +47,8 @@ class NotificationTests: XCTestCase {
         }
 
         self.machine!.postNotifications = true
-        self.machine!.transition(toState: .bbb) { _, error in
-            if let error = error {
+        self.machine!.transition(to: .bbb) { result in
+            if case .failure(let error) = result {
                 XCTFail(error.localizedDescription)
             }
         }

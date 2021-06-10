@@ -36,21 +36,26 @@
 
 # What is a state machine?
 
-Often there is something in your app that has a number of unique *'states'*. For example - the states of a user: registered, logged out or logged in. You can represent these states using booleans or enums, and add code using `if` or `switch` statements. But as the app grows it's not uncommon for it to get complicated, becoming difficult to manage, debug and develop.
+Often there is something in your app that has a number of unique _'states'_. For example, a user could have 3 states: _'registered'_, _'logged out'_ or _'logged in'_. You could represent those states with booleans or enums and fill your code with `if ... { ... }` and `switch { ... }` statements to implement the logic they control. But as the app grows it can become an unmaintainable mess that's almost impossible to debug and develop.
 
-This is where a state machine can help. Basically a state machine can simplify your code and reduce bugs by wrapping up all the functionality around maintaining state and executing code when it changes.
+This is where a state machine can help. Basically a state machine manages all this for you. It will simplify your code and abstract away all the _if-then-else_ and _switch_ logic, leaving you with a simple and clean set of functions or closures that implement your apps logic.
 
 # Machinus?
 
-If you look around [Github](https://www.github.com) you'll find plenty of state machine implementations, so why did I bother writing another? Simply put - Because I thought they all had limitations and... because I could. 
+If you look around [Github](https://www.github.com) you'll find plenty of state machine implementations. So why did I bother writing another? Simply put - Because I didn't find a single one that had all the features I wanted, and ... because I could. 
 
-Generally speaking I found two different types of state machines implementations - Those that defined states using enums and those that defined states using classes. Enum based machines tend to be simple, but have limited functionality because of their enum base. Class based machines on the other hand had more functionality, but required more code and were not be as easy to work with. 
+Generally the implementations I found fell into one of two styles dependent on how they define the states of the machine:
 
-With Machinus I settled on a different approach. It uses a protocol to uniquely identify states and a single class to associate functionality. This gives it the best of both styles of machines.
+* Those defined using enums.
+* Those defined using classes.
+
+Enum based machines tend to be simpler to use, but have limited functionality because of the limitations of enums. Class based machines on the other hand provide more functionality, but they typically require more code and are not as easy to use. 
+
+With Machinus I decided on a different and somewhat hybrid approach. It uses a protocol to define states and classes for storing the associate functionality. This gives it the best of both styles of machines.
 
 # Quick guide
 
-So enough talk, lets see how to use Machinus in 5 easy steps.
+So enough of the chit shat, let's implement Machinus in 5 easy steps.
 
 ## 1. Installing
 
@@ -62,9 +67,9 @@ github "drekka/Machinus"
 
 Then update your dependencies.
 
-## 2. Declare your state identifiers
+## 2. Declare the states
 
-The simplest way to define states is to use an enum. You can use anything you can apply protocols to, but enums are the simplest. All you need to do is ensure it implements the `StateIdentifer` protocol.
+Machinus can use anything that can have the `StateIdentifier` protocol applied to it as a state. You can use anything you like but generally the easiest way to specify the states of your machine is to use an enum like this: 
 
 ```swift
 enum UserState: StateIdentifier {
@@ -77,7 +82,7 @@ enum UserState: StateIdentifier {
 
 ## 3. Create the states and machine
 
-Next create a series of`StateConfig<T>` instances which are used to configure the states. Then we add a machine instance to manage them.
+Using these states we can create a set of configs using the `StateConfig<T>` class and pass them to an instance of `Machinus` like this.
 
 ```swift
 let initialising = StateConfig<UserState>(withIdentifier: .initialising, allowedTransitions: .registering, .loggedOut)
@@ -94,96 +99,102 @@ By default Machinus starts in the first state, so...
 machine.state == .initialising // = true
 ```
 
-Notice we only need the `StateConfig<T>` instances to configure the machine. Thereafter, we use the `StateIdentifier`s to talk to it. This is how we get the simplicity of enums with the power of classes.
+An important point at this stage is to remember that we only need the `StateConfig<T>` instances for configuration. After that we use the `StateIdentifier`s to work with it. This is how we get the simplicity of enums and the power of classes.
 
-## 4. Add functionality
+## 4. Adding functionality
 
-Now let's do something when a state changes by adding an 'action' to it.
+What makes a state machine really powerful is it's ability to execute code when the state changes. Machinus allows you to add blocks of code to execute on a state change like this.
 
 ```swift
 let registering = StateConfig<UserState>(withIdentifier: .registering, allowedTransitions: .loggedIn)
-    .afterEntering { _ in
+    .didEnter { _ in
         registerUser()
-}
+    }
 ```
 
 ## 5. Transition
 
-And finally let's tell the machine to change state.
+So now that we have our states, actions and the machine, we can tell it to change it's state.
 
 ```swift
-machine.transition(toState: .registering) { previousState, error in
-    // Do stuff after the transition.
-}
+machine.transition(to: .registering)
 ```
 
-Ta da! We've just used a state machine.
+And it will automatically call `registerUser()`. 
+
+_Ta da! We've just used a state machine!_
 
 # States
 
-Creating a state is a matter of defining two things: its identifier and an instance of `StateConfig<I>` to configure it. Creating the `StateConfig<I>` instance requires the identifier of the state, and optionally adding a list of other states that the new state can transition to.
+Creating a state is a matter of defining two things: It's unique identifier and the instance of `StateConfig<I>` used to  configure it. The default initialiser for a config requires the state identifier and a list of states that it can transition to.
 
 ```swift
 let initialising = State<UserState>(identifier: .initialising, allowedTransitions: .registering, .loggedOut)
 ```
 
-If you try and transition to a state not in the `allowedTransition` list then an error will be thrown. If no list is supplied, then the machine will be unable to leave this state once it transitions to it. Except for some special cases we'll get to later.
+If you try and transition to a state not in the `allowedTransition` list, Machinus will return an error. If the supplied list of `allowedTransition` states is empty, then the machine will be unable to leave this state. Except for some special cases we'll get to later.
 
 ## Adding actions to states
 
-As previously stated, state machines provide the ability to attach functionality (which we call 'Actions') to states. These actions are executed in a specific order when the machine transition from one state to another. See [Transition execution](#transition-execution) for details. 
+As previously stated, state machines provide the ability to specify closures that are executed when the machine changes state. These closures are attached to the states and execute when entering and exiting those states. To see the order in which they're executed refer to [Transition execution](#transition-execution) but for now lets see how they can be specified. 
 
-There are four actions you can attach to each state: 
+There are four closures you can attach to each state:
 
-* **`.beforeEntering { previousState in ... }`** - Executed just before the machine changes to the state you defined it on. It's passed the state that the machine is changing from as an argument.
+* **`willEnter { previousState in ... }`** - Executed on a state just __*before*__ the machine changes __*to*__ it.
 
-* **`.afterEntering { previousState in ... }`** - Executed just after the machine changes to the state you defined it on.  It's passed the state that the machine is changing from as an argument.
+* **`didEnter { previousState in ... }`** - Executed on a state just __*after*__ the machine changes __*to*__ it.
 
-* **`.beforeLeaving { nextState in ... }`** - Executed just before the machine changes from the state you defined it on. It's passed the state that the machine is changing to as an argument.
+* **`willExit { nextState in ... }`** - Executed on a state just __*before*__ the machine changes __*from*__ it.
 
-* **`.afterLeaving { nextState in ... }`** - Executed just after the machine changes from the state you defined it on. It's passed the state that the machine is changing to as an argument.
+* **`didExit { nextState in ... }`** - Executed on a state just __*after*__ the machine changes __*from*__ it.
 
-Here's how you would define all of these actions on a state.
+Generally you wouldn't add all of these clousures to a state. One or two being more typical. But if you did, it would look something like this.
 
 ```swift
 let registering = State<UserState>(withIdentifier: .registering, allowedTransitions: .loggedIn)
-    .beforeEntering { previousState in
+    .willEnter { previousState in
         setupForRegistering()
     }
-    .afterEntering { previousState in
+    .didEnter { previousState in
         startRegistering()
     }
-    .beforeLeaving { nextState in
+    .willExit { nextState in
         saveRegisteringData()
     }
-    .afterLeaving { nextState in
+    .didExit { nextState in
         registationIsDone()
-}
-```
-
-As you can see these are all chainable methods. The closures sole argument is the relevant 'other' state depending on whether the state is the new or old state of the machine. For the old state, it's the state the machine is going to, and for the new state, it's the previous state. 
+    }
+``` 
 
 ## Global states
 
-You can also specify that a state is 'global' in nature. Global states do not need to be listed in a state's allowed transitions list because it can always be transitioned to from any state. Hence the 'global' nature of them.
+In order to transition to a state you would normally need to specify it in the `allowedTransition` list of the states that can transition to it. But sometimes you need a state that can be transitioned to from any state. These are __*'global'*__ states. Global states do not need to be listed in allowed transitions lists because they can always be transitioned to. Thus the 'global' nature of them. Here's how to declare one.
 
 ```swift
-let initialising = State<UserState>(withIdentifier: .appError)
-    .makeGlobal()
+let initialising = State<UserState>(withIdentifier: .appError).makeGlobal()
 ```
 
 ## Final states
 
-When you have a state with no allowed transitions it's an end state in that once entered, the machine cannot leave it. However [global states](#global-states) and the [background state](#the-background-state) can still be accessed.
-
-Setting a state as final lets Machinus know that it cannot be exited at all. 
+Sometimes you also need a state that once entered, cannot be left. An example might be a state that represents an error so severe that the app cannot recover. Enter __*'Final'*__ states which are declared like this.
 
 ```swift
 let applicationError = State<UserState>(withIdentifier: .appError)
     .makeFinal()
 ```
 
-If you try and transition to another state (including global states) from a final state then a `nil` error will be returned unless a flag is set on the machine to return `MachinusError.finalState` errors. The transition to the [background state](#the-background-state) also fails when the current state is final, however it always returns a `nil` error.
+Final states cannot be exited and Machinus will fail the transition if you try to. Generally it will finish the transition with a `nil` new state, and optionally return a `MachinusError.finalState` error if 
+
+
+
+
+
+I. This includes transitioning to global states and the [background state](#the-background-state). However a transition to a background state will always fail with a `nil` without an error.
+
+However [global states](#global-states) and the [background state](#the-background-state) can still be accessed.
+
+and Machinus will throw a fatal error if you try and define a state config as final when it has an allowed transition list or `willExit` or `didExit` closures. 
+
 
 Note: you can still [reset the machine](#resetting-the-engine) if you need to.
 
@@ -291,7 +302,7 @@ The default dispatch queue is the main dispatch queue, but you can change it to 
 Manual transitions are the simplest to use. They're where you pass the desired state to transition via an argument. 
 
 ```swift
-machine.transition(toState: .registering) { previousState, error in
+machine.transition(to: .registering) { previousState, error in
     if let error = error {
         // Handle the error
         return
@@ -348,7 +359,7 @@ Sometimes a piece of code far away from the machine needs to be notified of a st
 
 ```swift
 machine.postNotifications = true
-machine.transition(toState: .loggedIn) { _, _ in } 
+machine.transition(to: .loggedIn) { _, _ in } 
 ```
 
 And elsewhere:
@@ -382,8 +393,8 @@ let cancellable = machine.sink { newState in
     }
 }
 
-machine.transition(toState: .second) { _,_ in }
-machine.transition(toState: .third) { _,_ in }
+machine.transition(to: .second) { _,_ in }
+machine.transition(to: .third) { _,_ in }
 ```
 
 Note than on subscription, Machinus will immediately send the current state value so your code knows what it is.
