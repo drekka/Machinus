@@ -75,8 +75,8 @@ class CombineTests: XCTestCase {
 
     func testMultipleSubscribers() {
 
-        let firstSubscriberTransition = self.expectation(description: "1st to second")
-        let secondSubscriberTransition = self.expectation(description: "2nd to second")
+        let firstSubscriberTransition = self.expectation(description: "1st subscriber to second state")
+        let secondSubscriberTransition = self.expectation(description: "2nd subscriber to second state")
 
         let cancellables = [
             machine.sink { newState in

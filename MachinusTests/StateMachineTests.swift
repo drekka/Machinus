@@ -117,6 +117,18 @@ class StateMachineTests: XCTestCase {
         expect(self.machine.state) == .aaa
     }
 
+    // MARK: - Builders
+
+    func testBuilder() {
+        machine = StateMachine {
+            StateConfig<MyState>(.aaa, allowedTransitions: .bbb)
+            StateConfig<MyState>(.bbb)
+            StateConfig<MyState>(.ccc)
+        }
+        machine.transition(to: .bbb)
+        expect(self.machine.state).toEventually(equal(.bbb))
+    }
+
     // MARK: - Transitions
 
     func testTransitionExecution() {
@@ -167,12 +179,12 @@ class StateMachineTests: XCTestCase {
         }
         expect(completed).toEventually(beTrue())
     }
-    
+
     func testTransitionFromFinalGeneratesError() {
-        
+
         machine.transition(to: .final)
         expect(self.machine.state).toEventually(equal(.final))
-        
+
         var completed = false
         machine.transition(to: .aaa) { result in
             expect(result).to(beFailure {
@@ -182,7 +194,7 @@ class StateMachineTests: XCTestCase {
         }
         expect(completed).toEventually(beTrue())
     }
-    
+
     // MARK: - Dynamic transitions
 
     func testDynamicTransition() {

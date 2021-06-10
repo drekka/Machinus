@@ -19,6 +19,12 @@ public typealias TransitionCompletion<T> = (_ result: Result<T, Error>) -> Void 
 /// - parameter toState: The next state of the machine.
 public typealias TransitionAction<T> = (_ fromState: T, _ toState: T) -> Void where T: StateIdentifier
 
+/// Defines a result builder that can be used on the state machines init.
+@resultBuilder
+struct StateConfigBuilder<T> where T: StateIdentifier {
+    static func buildBlock(_ states: StateConfig<T>...) -> [StateConfig<T>] { states }
+}
+
 /// A implementation of a state machine.
 public class StateMachine<T> where T: StateIdentifier {
 
@@ -68,28 +74,41 @@ public class StateMachine<T> where T: StateIdentifier {
         stopWatchingNotifications()
     }
 
-    /// Default initializer.
+    /// Convenience initializer which uses a result builder.
     ///
-    /// - parameter name: The unqiue name of this state machine. Defaults to a unique UUID but can be set to something more readable. Mostly used in logging.
+    /// - parameter name: The unqiue name of this state machine. If `nil` then a unique UUID is used. Mostly used in logging.
     /// - parameter didTransition: A closure that is called after every a transition, Takes both the old and new states as arguments.
-    /// - parameter firstState: The first state's configuration which is also the initial state and the state that a `reset()` reverts to.
-    /// - parameter secondState: The second state's configuration.
-    /// - parameter thirdState: The third state's configuration.
-    /// - parameter otherStates: Other state configurations if needed.
-    public init(name: String = UUID().uuidString + "<" + String(describing: T.self) + ">",
-                didTransition: TransitionAction<T>? = nil,
-                withStates firstState: StateConfig<T>,
-                _ secondState: StateConfig<T>,
-                _ thirdState: StateConfig<T>,
-                _ otherStates: StateConfig<T>...) {
+    /// - parameter state: A builder that defines a list of states.
+    public convenience init(name: String? = nil,
+                            didTransition: TransitionAction<T>? = nil,
+                            @StateConfigBuilder<T> _ states: () -> [StateConfig<T>]) {
+        self.init(name: name, didTransition: didTransition, withStates: states())
+    }
 
-        self.name = name
+    /// Convenience initializer which takes 3 or more state configs..
+    ///
+    /// - parameter name: The unqiue name of this state machine. If `nil` then a unique UUID is used. Mostly used in logging.
+    /// - parameter didTransition: A closure that is called after every a transition, Takes both the old and new states as arguments.
+    /// - parameters states: At least 3 states that the engine will manage..
+    public convenience init(name: String? = nil,
+                            didTransition: TransitionAction<T>? = nil,
+                            withStates states: StateConfig<T>...) {
+        self.init(name: name, didTransition: didTransition, withStates: states)
+    }
+
+    private init(name: String?,
+                 didTransition: TransitionAction<T>?,
+                 withStates states: [StateConfig<T>]) {
+
+        if states.count < 3 {
+            fatalError("🤖 Must have at least 3 state configs")
+        }
+
+        self.name = name ?? UUID().uuidString + "<" + String(describing: T.self) + ">"
         self.didTransition = didTransition
-        let states: [StateConfig<T>] = [firstState, secondState, thirdState] + otherStates
-
         stateConfigs = states
-        currentState = firstState
-        currentStateSubject = CurrentValueSubject(firstState.identifier)
+        currentState = states[0]
+        currentStateSubject = CurrentValueSubject(currentState.identifier)
 
         // Each state should be listed only once. Using a Set checks based on the hashable identifier.
         if Set(stateConfigs.map { $0.identifier }).count != stateConfigs.count {
