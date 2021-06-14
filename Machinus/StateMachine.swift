@@ -17,56 +17,73 @@ public typealias TransitionCompletion<T> = (_ result: Result<T, Error>) -> Void 
 /// Defines closures called before and after a transition.
 /// - parameter fromState: The previous state of the machine.
 /// - parameter toState: The next state of the machine.
-public typealias TransitionAction<T> = (_ fromState: T, _ toState: T) -> Void where T: StateIdentifier
+public typealias DidTransitionAction<T> = (_ fromState: T, _ toState: T) -> Void where T: StateIdentifier
 
 /// Defines a result builder that can be used on the state machines init.
 @resultBuilder
 struct StateConfigBuilder<T> where T: StateIdentifier {
-    static func buildBlock(_ states: StateConfig<T>...) -> [StateConfig<T>] { states }
+    static func buildBlock(_ configs: StateConfig<T>...) -> [StateConfig<T>] { configs }
 }
 
-/// A implementation of a state machine.
+/// Possible results of the transition pre-flight.
+private enum PreflightResponse<T> where T: StateIdentifier {
+    case allow
+    case fail(error: StateMachineError)
+    case redirect(to: T)
+}
+
+private extension BarrierResponse {
+    var asPreflightResponse: PreflightResponse<T> {
+        switch self {
+        case .allow: return .allow
+        case .fail: return .fail(error: .transitionDenied)
+        case .redirect(to: let redirectState): return .redirect(to: redirectState)
+        }
+    }
+}
+
+// MARK: - Implementation
+
+/// The implementation of a state machine.
 public class StateMachine<T> where T: StateIdentifier {
 
     public typealias Output = T
     public typealias Failure = Never
 
-    private var stateConfigs: [StateConfig<T>]
-
-    private var currentState: StateConfig<T> {
-        didSet {
-            currentStateSubject.value = currentState.identifier
-        }
-    }
-
-    private let currentStateSubject: CurrentValueSubject<T, Never>
-
-    private var restoreState: StateConfig<T>!
-
-    private var didTransition: TransitionAction<T>?
-
+    private var stateConfigs: [T: StateConfig<T>] = [:]
+    private let currentState: CurrentValueSubject<T, Never>
     private let transitionLock = NSLock()
+    private let resetState: T
 
-    private var backgroundObserver: Any?
-    private var foregroundObserver: Any?
-
-    // MARK: - Public interface
-
-    public let name: String
-
-    public var state: T {
-        return currentState.identifier
-    }
-
-    public var postNotifications = false
-
-    public var transitionQ = DispatchQueue.main
-
-    private var backgroundState: BackgroundStateConfig<T>! {
+    private var restoreState: T!
+    private var backgroundState: T! {
         didSet {
             startWatchingNotifications()
         }
     }
+
+    private var didTransition: DidTransitionAction<T>?
+    private var backgroundObserver: Any?
+    private var foregroundObserver: Any?
+    
+    /// Internal for testing.
+    var synchronousMode = false
+
+    // MARK: - Public interface
+
+    /// The name of the machine. By default this is a randon UUID combined witt the type of the state identifiers.
+    public let name: String
+
+    /// Readonly access to the machine's current state.
+    public var state: T {
+        return currentState.value
+    }
+
+    /// If set to true, causes the machine to issue state change notifications through the default notification center.
+    public var postNotifications = false
+
+    /// Set to `DispatchQueue.main` by default, this is the queue used for executing transitions. Note that if running in synchronouse mode then this is disabled.
+    public var transitionQ = DispatchQueue.main
 
     // MARK: - Lifecycle
 
@@ -80,8 +97,8 @@ public class StateMachine<T> where T: StateIdentifier {
     /// - parameter didTransition: A closure that is called after every a transition, Takes both the old and new states as arguments.
     /// - parameter state: A builder that defines a list of states.
     public convenience init(name: String? = nil,
-                            didTransition: TransitionAction<T>? = nil,
-                            @StateConfigBuilder<T> _ states: () -> [StateConfig<T>]) {
+                            didTransition: DidTransitionAction<T>? = nil,
+                            @StateConfigBuilder<T> withStates states: () -> [StateConfig<T>]) {
         self.init(name: name, didTransition: didTransition, withStates: states())
     }
 
@@ -91,13 +108,13 @@ public class StateMachine<T> where T: StateIdentifier {
     /// - parameter didTransition: A closure that is called after every a transition, Takes both the old and new states as arguments.
     /// - parameters states: At least 3 states that the engine will manage..
     public convenience init(name: String? = nil,
-                            didTransition: TransitionAction<T>? = nil,
+                            didTransition: DidTransitionAction<T>? = nil,
                             withStates states: StateConfig<T>...) {
         self.init(name: name, didTransition: didTransition, withStates: states)
     }
 
     private init(name: String?,
-                 didTransition: TransitionAction<T>?,
+                 didTransition: DidTransitionAction<T>?,
                  withStates states: [StateConfig<T>]) {
 
         if states.count < 3 {
@@ -106,54 +123,92 @@ public class StateMachine<T> where T: StateIdentifier {
 
         self.name = name ?? UUID().uuidString + "<" + String(describing: T.self) + ">"
         self.didTransition = didTransition
-        stateConfigs = states
-        currentState = states[0]
-        currentStateSubject = CurrentValueSubject(currentState.identifier)
+        resetState = states[0].identifier
+        currentState = CurrentValueSubject(resetState)
 
-        // Each state should be listed only once. Using a Set checks based on the hashable identifier.
-        if Set(stateConfigs.map { $0.identifier }).count != stateConfigs.count {
-            fatalError("🤖 Duplicate identifiers detected")
-        }
-
-        // Set the background state
         states.forEach { state in
-            guard let state = state as? BackgroundStateConfig else { return }
-            if backgroundState != nil {
-                fatalError("🤖 Only one background is allowed per state machine. Both \(String(describing: backgroundState)) and \(String(describing: state)) are defined as background states.")
+
+            if stateConfigs.keys.contains(state.identifier) {
+                fatalError("🤖 Multiples states detected with key \(state.identifier)")
             }
-            backgroundState = state
+            stateConfigs[state.identifier] = state
+
+            if let backgroundState = state as? BackgroundStateConfig {
+                if self.backgroundState != nil {
+                    fatalError("🤖 Only one background is allowed per state machine. Both \(String(describing: backgroundState)) and \(String(describing: state)) are defined as background states.")
+                }
+                self.backgroundState = backgroundState.identifier
+            }
         }
     }
 
+    /// Resets the state machine to it's initial state which will be the first state the machine was initialised with.
+    ///
+    /// This also calls the initial state's `didEnter` closure.
     public func reset() {
-        currentState = stateConfigs[0]
-    }
+        queueTransition { [weak self] in
 
-    // MARK: - Public transitions
+            guard let self = self else { return }
 
-    public func transition(completion: TransitionCompletion<T>? = nil) {
-        guard let dynamicClosure = currentState.dynamicTransition else {
-            fatalError("🤖 No dynamic transition defined for \(currentState)")
+            os_log(.debug, "🤖 %@: Resetting to initial state", self.name)
+            let fromState = self.state
+            self.currentState.value = self.resetState
+            let stateConfig = self.stateConfig(forState: self.resetState)
+            stateConfig.didEnter?(fromState)
         }
-        runTransitionProcess(nextState: {
-            os_log(.debug, "🤖 %@: Running dynamic transition closure", self.name)
-            return dynamicClosure()
-        }, completion: completion)
     }
 
+    // MARK: - Public transitions requests
+
+    /// Requests a dynamic transition where the dynamic transition closure of the current state is executed to obtain the next state of the machine.
+    ///
+    /// - parameter completion: A closure that will be executed when the transition is completed.
+    public func transition(completion: TransitionCompletion<T>? = nil) {
+        queueTransition { [weak self] in
+
+            guard let self = self else { return }
+
+            guard let dynamicClosure = self.stateConfigs[self.state]?.dynamicTransition else {
+                fatalError("🤖 No dynamic transition defined for \(self.state)")
+            }
+            os_log(.debug, "🤖 %@: Running dynamic transition", self.name)
+            self.transitionToState(self.stateConfig(forState: dynamicClosure()), completion: completion)
+        }
+    }
+
+    /// Requests a transition to a specific state.
+    ///
+    /// - parameter state: The state to transition to.
+    /// - parameter completion: A closure that will be executed when the transition is completed.
     public func transition(to state: T, completion: TransitionCompletion<T>? = nil) {
-        runTransitionProcess(nextState: { state }, completion: completion)
+        queueTransition { [weak self] in
+
+            guard let self = self else { return }
+
+            self.transitionToState(self.stateConfig(forState: state), completion: completion)
+        }
     }
 
     // MARK: - Internal
 
-    private func stopWatchingNotifications() {
-        if let obs = backgroundObserver {
-            NotificationCenter.default.removeObserver(obs)
+    // Queues a transition that locks access then transitions.
+    private func queueTransition(_ block: @escaping () -> Void) {
+
+        let execute: () -> Void = { [weak self] in
+            guard let self = self else { return }
+            os_log(.debug, "🤖 %@: Initiating transition", self.name)
+            self.transitionLock.lock()
+            block()
+            self.transitionLock.unlock()
         }
-        if let obs = foregroundObserver {
-            NotificationCenter.default.removeObserver(obs)
+        
+        os_log(.debug, "🤖 %@: Adding locked transition block to queue", name)
+        if synchronousMode {
+            execute()
+            return
         }
+        
+        transitionQ.async(execute: execute)
     }
 
     private func startWatchingNotifications() {
@@ -172,77 +227,72 @@ public class StateMachine<T> where T: StateIdentifier {
         }
     }
 
-    private func runSynchronised(block: @escaping () -> Void) {
-        transitionQ.async {
-            // Use a lock to defend against concurrent dispatch queue execution.
-            self.transitionLock.lock()
-            block()
-            self.transitionLock.unlock()
+    private func stopWatchingNotifications() {
+        if let obs = backgroundObserver {
+            NotificationCenter.default.removeObserver(obs)
         }
-    }
-
-    private func state(forIdentifier identifier: T) -> StateConfig<T> {
-        guard let state = stateConfigs.first(where: { $0.identifier == identifier }) else {
-            fatalError("🤖 State \(identifier) not registered with this machine.")
+        if let obs = foregroundObserver {
+            NotificationCenter.default.removeObserver(obs)
         }
-        return state
     }
 
     // MARK: - Transition logic
 
-    private func runTransitionProcess(nextState: @escaping () -> T, completion: TransitionCompletion<T>?) {
-        runSynchronised { [weak self] in
+    private func transitionToBackground() {
+        queueTransition {
+            os_log(.debug, "🤖 %@: Transitioning to background state .%@", self.name, String(describing: self.backgroundState))
+            self.restoreState = self.state
+            self.currentState.value = self.backgroundState
+            self.stateConfig(forState: self.backgroundState).didEnter?(self.restoreState)
+        }
+    }
 
-            guard let self = self else { return }
-
-            let toStateIdentifier = nextState()
-            let toState = self.state(forIdentifier: toStateIdentifier)
-
-            os_log(.debug, "🤖 %@: Transitioning to .%@", self.name, String(describing: toStateIdentifier))
-            if let error = self.preflightTransition(toState: toState) {
-                os_log(.debug, "🤖 %@: Preflight failed: %@", self.name, error.localizedDescription)
-                completion?(.failure(error))
-                return
+    private func transitionToForeground() {
+        queueTransition {
+            
+            var state: T = self.restoreState
+            
+            /// Allow for a transition barrier to redirect.
+            
+            let restoreStateConfig = self.stateConfig(forState: self.restoreState)
+            if let barrier = restoreStateConfig.transitionBarrier,
+               case BarrierResponse.redirect(to: let redirectState) = barrier() {
+                os_log(.debug, "🤖 %@: Transition barrier of %@ redirecting to %@", self.name, String(describing: self.restoreState), String(describing: redirectState))
+                state = redirectState
             }
-
-            self.executeTransition(toState: toState, completion: completion)
+            
+            os_log(.debug, "🤖 %@: Transitioning to foreground, restoring state .%@", self.name, String(describing: self.restoreState))
+            self.currentState.value = state
+            self.stateConfig(forState: self.backgroundState).didExit?(state)
+            self.restoreState = nil
         }
     }
 
-    private func preflightTransition(toState: StateConfig<T>) -> StateMachineError? {
+    private func transitionToState(_ stateConfigGenerator: @autoclosure () -> StateConfig<T>, completion: TransitionCompletion<T>?) {
 
-        os_log(.debug, "🤖 %@: Pre-flighting transition ...", name)
+        let stateConfig = stateConfigGenerator()
+        switch preflightTransition(toState: stateConfig) {
 
-        // If the state is the same state then do nothing.
-        guard currentState != toState else {
-            os_log(.debug, "🤖 %@: Already in state %@", name, String(describing: currentState))
-            return .alreadyInState
+        case .fail(error: let error):
+            os_log(.debug, "🤖 %@: Preflight failed: %@", name, error.localizedDescription)
+            completion?(.failure(error))
+            return
+
+        case .redirect(to: let redirectState):
+            os_log(.debug, "🤖 %@: Preflight redirecting to: %@", name, String(describing: redirectState))
+            transitionToState(self.stateConfig(forState: redirectState), completion: completion)
+
+        case .allow:
+            os_log(.debug, "🤖 %@: Preflight passed", name)
+            transition(toState: stateConfig, completion: completion)
         }
-
-        // Check for a final state transition
-        if currentState is FinalStateConfig {
-            os_log(.error, "🤖 %@: Final state, cannot transition", name)
-            return .finalState
-        }
-
-        if let barrier = toState.transitionBarrier, !barrier() {
-            os_log(.debug, "🤖 %@: Transition barrier blocked transition", name)
-            return .transitionDenied
-        }
-
-        guard currentState.canTransition(toState: toState) else {
-            os_log(.debug, "🤖 %@: Illegal transition", name)
-            return .illegalTransition
-        }
-
-        return nil
     }
 
-    private func executeTransition(toState: StateConfig<T>, completion: TransitionCompletion<T>?) {
+    private func transition(toState: StateConfig<T>, completion: TransitionCompletion<T>?) {
 
         os_log(.debug, "🤖 %@: Executing transition ...", name)
-        let fromState = currentState
-        currentState = toState
+        let fromState = self.stateConfig(forState: self.state)
+        currentState.value = toState.identifier
 
         fromState.didExit?(toState.identifier)
         toState.didEnter?(fromState.identifier)
@@ -256,37 +306,51 @@ public class StateMachine<T> where T: StateIdentifier {
         completion?(.success(fromState.identifier))
     }
 
-    private func transitionToBackground() {
-        runSynchronised {
-            guard let backgroundState = self.backgroundState else {
-                fatalError("🤖 Transition to background state called when no background state set")
-            }
+    private func preflightTransition(toState: StateConfig<T>) -> PreflightResponse<T> {
 
-            os_log(.debug, "🤖 %@: Transitioning to background state .%@", self.name, String(describing: backgroundState))
-            self.restoreState = self.currentState
-            self.currentState = backgroundState
-            backgroundState.didEnter?(self.restoreState.identifier)
+        os_log(.debug, "🤖 %@: Preflighting transition to .%@", name, String(describing: state))
+
+        let currentStateConfig = self.stateConfig(forState: self.state)
+        
+        // If the state is the same state then do nothing.
+        guard currentStateConfig != toState else {
+            os_log(.debug, "🤖 %@: Already in state %@", name, String(describing: currentStateConfig))
+            return .fail(error: .alreadyInState)
         }
+
+        // Check for a final state transition
+        if currentStateConfig is FinalStateConfig {
+            os_log(.error, "🤖 %@: Final state, cannot transition", name)
+            return .fail(error: .finalState)
+        }
+
+        /// Process the registered transition barrier.
+        if let barrier = toState.transitionBarrier {
+            os_log(.debug, "🤖 %@: Executing transition barrier", name)
+            return barrier().asPreflightResponse
+        }
+
+        guard currentStateConfig.canTransition(toState: toState) else {
+            os_log(.debug, "🤖 %@: Illegal transition", name)
+            return .fail(error: .illegalTransition)
+        }
+
+        return .allow
     }
 
-    private func transitionToForeground() {
-        runSynchronised {
-            guard let restoreState = self.restoreState else {
-                fatalError("🤖 Transitioning to foreground called when machine has not transitioned to background")
-            }
-
-            os_log(.debug, "🤖 %@: Transitioning to foreground, restoring state .%@", self.name, String(describing: restoreState))
-            self.currentState = restoreState
-            self.restoreState = nil
-            self.backgroundState?.didExit?(self.currentState.identifier)
+    private func stateConfig(forState state: T) -> StateConfig<T> {
+        guard let stateConfig = stateConfigs[state] else {
+            fatalError("🤖 State \(state) not registered with this machine.")
         }
+        return stateConfig
     }
 }
 
 // MARK: - Combine
 
+/// Extension that provides combine support to the machine.
 extension StateMachine: Publisher {
     public func receive<S>(subscriber: S) where S: Subscriber, S.Input == Output, S.Failure == Failure {
-        return currentStateSubject.receive(subscriber: subscriber)
+        return currentState.receive(subscriber: subscriber)
     }
 }

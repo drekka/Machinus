@@ -20,9 +20,9 @@ class CombineTests: XCTestCase {
     var machine: StateMachine<State>!
 
     override func setUp() {
-        let state1 = StateConfig<State>(.first, allowedTransitions: .second)
-        let state2 = StateConfig<State>(.second, allowedTransitions: .third)
-        let state3 = StateConfig<State>(.third, allowedTransitions: .first)
+        let state1 = StateConfig<State>(.first, canTransitionTo: .second)
+        let state2 = StateConfig<State>(.second, canTransitionTo: .third)
+        let state3 = StateConfig<State>(.third, canTransitionTo: .first)
         machine = StateMachine(withStates: state1, state2, state3)
     }
 

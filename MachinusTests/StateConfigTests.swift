@@ -20,10 +20,10 @@ class StateConfigTests: XCTestCase {
         case background
     }
 
-    private var stateA: StateConfig<MyState> = StateConfig(.aaa, allowedTransitions: .bbb)
+    private var stateA: StateConfig<MyState> = StateConfig(.aaa,                 canTransitionTo: .bbb)
     private var stateAA: StateConfig<MyState> = StateConfig(.aaa)
     private var stateB: StateConfig<MyState> = StateConfig(.bbb)
-    private var global: GlobalStateConfig<MyState> = GlobalStateConfig(.global, allowedTransitions: .aaa)
+    private var global: GlobalStateConfig<MyState> = GlobalStateConfig(.global,                 canTransitionTo: .aaa)
     private var final: FinalStateConfig<MyState> = FinalStateConfig(.final)
     private var background: BackgroundStateConfig<MyState> = BackgroundStateConfig(.background)
 

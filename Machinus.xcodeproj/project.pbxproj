@@ -16,6 +16,9 @@
 		6C920DE822118BCB0084E6E8 /* StateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE722118BCB0084E6E8 /* StateMachine.swift */; };
 		6C920DEA22118CB20084E6E8 /* StateConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE922118CB20084E6E8 /* StateConfigTests.swift */; };
 		6CA26BAA2670EC3600FE23A9 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = 6CA26BA92670EC3600FE23A9 /* Nimble */; };
+		6CA26BAE2673044F00FE23A9 /* BackgroundStateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA26BAD2673044F00FE23A9 /* BackgroundStateConfig.swift */; };
+		6CA26BB02673045E00FE23A9 /* GlobalStateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA26BAF2673045E00FE23A9 /* GlobalStateConfig.swift */; };
+		6CA26BB22673046D00FE23A9 /* FinalStateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA26BB12673046D00FE23A9 /* FinalStateConfig.swift */; };
 		6CB3C903266B41980054887B /* StateIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB3C902266B41980054887B /* StateIdentifier.swift */; };
 		6CFBB324221D8B08007E6722 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFBB323221D8B08007E6722 /* Notifications.swift */; };
 /* End PBXBuildFile section */
@@ -47,6 +50,9 @@
 		6C920DE922118CB20084E6E8 /* StateConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateConfigTests.swift; sourceTree = "<group>"; };
 		6CA26BAB2670ED0700FE23A9 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
 		6CA26BAC2671083E00FE23A9 /* Machinus.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Machinus.xctestplan; sourceTree = "<group>"; };
+		6CA26BAD2673044F00FE23A9 /* BackgroundStateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundStateConfig.swift; sourceTree = "<group>"; };
+		6CA26BAF2673045E00FE23A9 /* GlobalStateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalStateConfig.swift; sourceTree = "<group>"; };
+		6CA26BB12673046D00FE23A9 /* FinalStateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalStateConfig.swift; sourceTree = "<group>"; };
 		6CB3C900266A0A230054887B /* Nimble.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Nimble.xcframework; path = Carthage/Build/Nimble.xcframework; sourceTree = "<group>"; };
 		6CB3C902266B41980054887B /* StateIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateIdentifier.swift; sourceTree = "<group>"; };
 		6CFBB323221D8B08007E6722 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
@@ -98,13 +104,12 @@
 		6C920DCD221187630084E6E8 /* Machinus */ = {
 			isa = PBXGroup;
 			children = (
+				6CA26BB32673047800FE23A9 /* State */,
 				6C920DCF221187630084E6E8 /* Info.plist */,
 				6C920DCE221187630084E6E8 /* Machinus.h */,
 				6C920DE722118BCB0084E6E8 /* StateMachine.swift */,
 				6C258BE022439DA40033F66E /* StateMachineError.swift */,
 				6CFBB323221D8B08007E6722 /* Notifications.swift */,
-				6C920DE522118BBF0084E6E8 /* StateConfig.swift */,
-				6CB3C902266B41980054887B /* StateIdentifier.swift */,
 			);
 			path = Machinus;
 			sourceTree = "<group>";
@@ -128,6 +133,18 @@
 				6CB3C900266A0A230054887B /* Nimble.xcframework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6CA26BB32673047800FE23A9 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				6C920DE522118BBF0084E6E8 /* StateConfig.swift */,
+				6CB3C902266B41980054887B /* StateIdentifier.swift */,
+				6CA26BAD2673044F00FE23A9 /* BackgroundStateConfig.swift */,
+				6CA26BAF2673045E00FE23A9 /* GlobalStateConfig.swift */,
+				6CA26BB12673046D00FE23A9 /* FinalStateConfig.swift */,
+			);
+			path = State;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -248,7 +265,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				6CB3C903266B41980054887B /* StateIdentifier.swift in Sources */,
+				6CA26BAE2673044F00FE23A9 /* BackgroundStateConfig.swift in Sources */,
+				6CA26BB22673046D00FE23A9 /* FinalStateConfig.swift in Sources */,
 				6C258BE122439DA40033F66E /* StateMachineError.swift in Sources */,
+				6CA26BB02673045E00FE23A9 /* GlobalStateConfig.swift in Sources */,
 				6CFBB324221D8B08007E6722 /* Notifications.swift in Sources */,
 				6C920DE622118BBF0084E6E8 /* StateConfig.swift in Sources */,
 				6C920DE822118BCB0084E6E8 /* StateMachine.swift in Sources */,

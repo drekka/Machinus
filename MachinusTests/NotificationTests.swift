@@ -27,7 +27,7 @@ class NotificationTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        self.stateA = StateConfig(.aaa, allowedTransitions: .bbb)
+        self.stateA = StateConfig(.aaa,                 canTransitionTo: .bbb)
         self.stateB = StateConfig(.bbb)
         self.stateC = StateConfig(.ccc)
 

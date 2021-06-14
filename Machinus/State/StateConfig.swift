@@ -17,7 +17,24 @@ public typealias PreviousStateAction<T> = (_ nextState: T) -> Void where T: Stat
 /// Closure called to dynamically perform a transition.
 public typealias TransitionFactory<T> = () -> T where T: StateIdentifier
 
-public typealias TransitionBarrier<T> = () -> Bool where T: StateIdentifier
+/// Defines the closure that is executed before a transition to a state.
+///
+/// This closure can deny the transition or even redirect to another state.
+/// If redirecting, the machine fails the current transition, then queues a transition to the redirect state.
+public typealias TransitionBarrier<T> = () -> BarrierResponse<T> where T: StateIdentifier
+
+/// Possible responses from a transition barrier.
+public enum BarrierResponse<T> where T: StateIdentifier {
+    
+    /// Allow the transition to continue.
+    case allow
+    
+    /// Fail the transition with an error.
+    case fail
+    
+    /// Cancel the current transition and then redirect to the specified state.
+    case redirect(to: T)
+}
 
 // MARK: - Base type
 
@@ -45,7 +62,7 @@ public class StateConfig<T> where T: StateIdentifier {
      - parameter didEnter: A closure to execute after entering this state.
      - parameter didExit: A closure that is executed after exiting this state.
      - parameter dynamicTransition: A closures that can be used to decide what state to transition to.
-     - parameter transitionBarrier: A closure that can be used to bar access to this state and trigger a transition failure if it returns false.
+     - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
     public init(_ identifier: T,
@@ -53,13 +70,13 @@ public class StateConfig<T> where T: StateIdentifier {
                 didExit: PreviousStateAction<T>? = nil,
                 dynamicTransition: TransitionFactory<T>? = nil,
                 transitionBarrier: TransitionBarrier<T>? = nil,
-                allowedTransitions: T...) {
+                                canTransitionTo: T...) {
         self.identifier = identifier
         self.didEnter = didEnter
         self.didExit = didExit
         self.dynamicTransition = dynamicTransition
         self.transitionBarrier = transitionBarrier
-        self.allowedTransitions = allowedTransitions
+        self.allowedTransitions =                 canTransitionTo
     }
 
     /**
@@ -80,43 +97,6 @@ extension StateConfig: CustomDebugStringConvertible {
         return String(describing: identifier)
     }
 }
-
-// MARK: - Unique types
-
-/// Background states are automatically transitioned to when the app goes into the background. There can be only one background state added to a state machine.
-public final class BackgroundStateConfig<T>: StateConfig<T> where T: StateIdentifier {
-
-    /**
-     Default initialiser for a background state.
-
-     - parameter identifier: The unique identifier of the state.
-     - parameter didEnter: A closure to execute after entering this state.
-     - parameter didExit: A closure that is executed after exiting this state.
-     */
-    public init(_ identifier: T,
-                didEnter: @escaping NextStateAction<T> = { _ in },
-                didExit: @escaping PreviousStateAction<T> = { _ in }) {
-        super.init(identifier, didEnter: didEnter, didExit: didExit)
-    }
-}
-
-public final class FinalStateConfig<T>: StateConfig<T> where T: StateIdentifier {
-    /**
-     Default initialiser for a background state.
-
-     - parameter identifier: The unique identifier of the state.
-     - parameter didEnter: A closure to execute after entering this state.
-     - parameter transitionBarrier: A closure that can be used to bar access to this state and trigger a transition failure if it returns false.
-     */
-    public init(_ identifier: T,
-                didEnter: @escaping NextStateAction<T> = { _ in },
-                transitionBarrier: TransitionBarrier<T>? = nil) {
-        super.init(identifier, didEnter: didEnter, transitionBarrier: transitionBarrier)
-    }
-}
-
-/// Global states do not need to be in allowed transition lists as any other state can transition to them, except for final states which are always final.
-public final class GlobalStateConfig<T>: StateConfig<T> where T: StateIdentifier {}
 
 // MARK: - Hashable
 
