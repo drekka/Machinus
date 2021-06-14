@@ -4,7 +4,6 @@ osx_image: xcode12.5
 xcode_sdk: iphonesimulator14.5
 xcode_project: Machinus.xcodeproj
 xcode_scheme: Machinus
-language: swift
 xcode_destination: platform=iOS Simulator,OS=14.5,name=iPhone 12 Pro
 env:
   global:
