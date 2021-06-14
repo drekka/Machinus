@@ -10,12 +10,5 @@ env:
   global:
     - FRAMEWORK_NAME=Machinus
 before_install:
-  - brew update
-  - brew outdated carthage || brew upgrade carthage
 before_script:
-  # bootstrap the dependencies for the project
-  # you can remove if you don't have dependencies
-  - carthage bootstrap --no-use-binaries --platform iOS --use-xcframeworks
 before_deploy:
-  - carthage build --no-skip-current --platform iOS
-  - carthage archive $FRAMEWORK_NAME
