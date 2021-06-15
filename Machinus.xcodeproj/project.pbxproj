@@ -3,21 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		6C0BF6D0247BDB2300279FFA /* CombineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0BF6CF247BDB2300279FFA /* CombineTests.swift */; };
-		6C258BE122439DA40033F66E /* MachinusError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE022439DA40033F66E /* MachinusError.swift */; };
-		6C258BE322439DEF0033F66E /* StateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE222439DEF0033F66E /* StateMachine.swift */; };
+		6C258BE122439DA40033F66E /* StateMachineError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C258BE022439DA40033F66E /* StateMachineError.swift */; };
 		6C83733B222D3C39001C57E6 /* NotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C83733A222D3C39001C57E6 /* NotificationTests.swift */; };
-		6C920DD5221187630084E6E8 /* Machinus.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C920DCB221187630084E6E8 /* Machinus.framework */; };
-		6C920DDA221187630084E6E8 /* MachinusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DD9221187630084E6E8 /* MachinusTests.swift */; };
+		6C920DDA221187630084E6E8 /* StateMachineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DD9221187630084E6E8 /* StateMachineTests.swift */; };
 		6C920DDC221187630084E6E8 /* Machinus.h in Headers */ = {isa = PBXBuildFile; fileRef = 6C920DCE221187630084E6E8 /* Machinus.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		6C920DE622118BBF0084E6E8 /* StateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE522118BBF0084E6E8 /* StateConfig.swift */; };
-		6C920DE822118BCB0084E6E8 /* Machinus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE722118BCB0084E6E8 /* Machinus.swift */; };
+		6C920DE822118BCB0084E6E8 /* StateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE722118BCB0084E6E8 /* StateMachine.swift */; };
 		6C920DEA22118CB20084E6E8 /* StateConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C920DE922118CB20084E6E8 /* StateConfigTests.swift */; };
-		6C920DEE221190B60084E6E8 /* Nimble.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C920DED221190B60084E6E8 /* Nimble.framework */; };
+		6CA26BAA2670EC3600FE23A9 /* Nimble in Frameworks */ = {isa = PBXBuildFile; productRef = 6CA26BA92670EC3600FE23A9 /* Nimble */; };
+		6CA26BAE2673044F00FE23A9 /* BackgroundStateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA26BAD2673044F00FE23A9 /* BackgroundStateConfig.swift */; };
+		6CA26BB02673045E00FE23A9 /* GlobalStateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA26BAF2673045E00FE23A9 /* GlobalStateConfig.swift */; };
+		6CA26BB22673046D00FE23A9 /* FinalStateConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA26BB12673046D00FE23A9 /* FinalStateConfig.swift */; };
+		6CB3C903266B41980054887B /* StateIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB3C902266B41980054887B /* StateIdentifier.swift */; };
 		6CFBB324221D8B08007E6722 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CFBB323221D8B08007E6722 /* Notifications.swift */; };
 /* End PBXBuildFile section */
 
@@ -35,20 +37,24 @@
 		4FB495C1221D2B6300782D6C /* .travis.yml */ = {isa = PBXFileReference; lastKnownFileType = text; path = .travis.yml; sourceTree = "<group>"; };
 		4FB495C2221D302C00782D6C /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		6C0BF6CF247BDB2300279FFA /* CombineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombineTests.swift; sourceTree = "<group>"; };
-		6C258BE022439DA40033F66E /* MachinusError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinusError.swift; sourceTree = "<group>"; };
-		6C258BE222439DEF0033F66E /* StateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachine.swift; sourceTree = "<group>"; };
+		6C258BE022439DA40033F66E /* StateMachineError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachineError.swift; sourceTree = "<group>"; };
 		6C83733A222D3C39001C57E6 /* NotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTests.swift; sourceTree = "<group>"; };
 		6C920DCB221187630084E6E8 /* Machinus.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Machinus.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C920DCE221187630084E6E8 /* Machinus.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Machinus.h; sourceTree = "<group>"; };
 		6C920DCF221187630084E6E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6C920DD4221187630084E6E8 /* MachinusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MachinusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		6C920DD9221187630084E6E8 /* MachinusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinusTests.swift; sourceTree = "<group>"; };
+		6C920DD9221187630084E6E8 /* StateMachineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachineTests.swift; sourceTree = "<group>"; };
 		6C920DDB221187630084E6E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6C920DE522118BBF0084E6E8 /* StateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateConfig.swift; sourceTree = "<group>"; };
-		6C920DE722118BCB0084E6E8 /* Machinus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Machinus.swift; sourceTree = "<group>"; };
+		6C920DE722118BCB0084E6E8 /* StateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachine.swift; sourceTree = "<group>"; };
 		6C920DE922118CB20084E6E8 /* StateConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateConfigTests.swift; sourceTree = "<group>"; };
-		6C920DEB221190110084E6E8 /* Cartfile.private */ = {isa = PBXFileReference; lastKnownFileType = text; path = Cartfile.private; sourceTree = "<group>"; };
-		6C920DED221190B60084E6E8 /* Nimble.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Nimble.framework; path = Carthage/Build/iOS/Nimble.framework; sourceTree = "<group>"; };
+		6CA26BAB2670ED0700FE23A9 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+		6CA26BAC2671083E00FE23A9 /* Machinus.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Machinus.xctestplan; sourceTree = "<group>"; };
+		6CA26BAD2673044F00FE23A9 /* BackgroundStateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundStateConfig.swift; sourceTree = "<group>"; };
+		6CA26BAF2673045E00FE23A9 /* GlobalStateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalStateConfig.swift; sourceTree = "<group>"; };
+		6CA26BB12673046D00FE23A9 /* FinalStateConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalStateConfig.swift; sourceTree = "<group>"; };
+		6CB3C900266A0A230054887B /* Nimble.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Nimble.xcframework; path = Carthage/Build/Nimble.xcframework; sourceTree = "<group>"; };
+		6CB3C902266B41980054887B /* StateIdentifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateIdentifier.swift; sourceTree = "<group>"; };
 		6CFBB323221D8B08007E6722 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
 		6CFBB3252226B3DD007E6722 /* Machinus.playground */ = {isa = PBXFileReference; lastKnownFileType = file.playground; path = Machinus.playground; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.swift; };
 /* End PBXFileReference section */
@@ -65,8 +71,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C920DEE221190B60084E6E8 /* Nimble.framework in Frameworks */,
-				6C920DD5221187630084E6E8 /* Machinus.framework in Frameworks */,
+				6CA26BAA2670EC3600FE23A9 /* Nimble in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -76,10 +81,10 @@
 		6C920DC1221187630084E6E8 = {
 			isa = PBXGroup;
 			children = (
+				6CA26BAB2670ED0700FE23A9 /* Package.swift */,
 				6CFBB3252226B3DD007E6722 /* Machinus.playground */,
 				4FB495C2221D302C00782D6C /* README.md */,
 				4FB495C1221D2B6300782D6C /* .travis.yml */,
-				6C920DEB221190110084E6E8 /* Cartfile.private */,
 				6C920DCD221187630084E6E8 /* Machinus */,
 				6C920DD8221187630084E6E8 /* MachinusTests */,
 				6C920DCC221187630084E6E8 /* Products */,
@@ -99,13 +104,12 @@
 		6C920DCD221187630084E6E8 /* Machinus */ = {
 			isa = PBXGroup;
 			children = (
+				6CA26BB32673047800FE23A9 /* State */,
 				6C920DCF221187630084E6E8 /* Info.plist */,
 				6C920DCE221187630084E6E8 /* Machinus.h */,
-				6C920DE722118BCB0084E6E8 /* Machinus.swift */,
-				6C258BE022439DA40033F66E /* MachinusError.swift */,
+				6C920DE722118BCB0084E6E8 /* StateMachine.swift */,
+				6C258BE022439DA40033F66E /* StateMachineError.swift */,
 				6CFBB323221D8B08007E6722 /* Notifications.swift */,
-				6C920DE522118BBF0084E6E8 /* StateConfig.swift */,
-				6C258BE222439DEF0033F66E /* StateMachine.swift */,
 			);
 			path = Machinus;
 			sourceTree = "<group>";
@@ -114,7 +118,8 @@
 			isa = PBXGroup;
 			children = (
 				6C920DDB221187630084E6E8 /* Info.plist */,
-				6C920DD9221187630084E6E8 /* MachinusTests.swift */,
+				6C920DD9221187630084E6E8 /* StateMachineTests.swift */,
+				6CA26BAC2671083E00FE23A9 /* Machinus.xctestplan */,
 				6C83733A222D3C39001C57E6 /* NotificationTests.swift */,
 				6C920DE922118CB20084E6E8 /* StateConfigTests.swift */,
 				6C0BF6CF247BDB2300279FFA /* CombineTests.swift */,
@@ -125,9 +130,21 @@
 		6C920DEC221190B50084E6E8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				6C920DED221190B60084E6E8 /* Nimble.framework */,
+				6CB3C900266A0A230054887B /* Nimble.xcframework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6CA26BB32673047800FE23A9 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				6C920DE522118BBF0084E6E8 /* StateConfig.swift */,
+				6CB3C902266B41980054887B /* StateIdentifier.swift */,
+				6CA26BAD2673044F00FE23A9 /* BackgroundStateConfig.swift */,
+				6CA26BAF2673045E00FE23A9 /* GlobalStateConfig.swift */,
+				6CA26BB12673046D00FE23A9 /* FinalStateConfig.swift */,
+			);
+			path = State;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -169,7 +186,6 @@
 				6C920DD0221187630084E6E8 /* Sources */,
 				6C920DD1221187630084E6E8 /* Frameworks */,
 				6C920DD2221187630084E6E8 /* Resources */,
-				6C920DEF221190C40084E6E8 /* Copy frameworks */,
 			);
 			buildRules = (
 			);
@@ -177,6 +193,9 @@
 				6C920DD7221187630084E6E8 /* PBXTargetDependency */,
 			);
 			name = MachinusTests;
+			packageProductDependencies = (
+				6CA26BA92670EC3600FE23A9 /* Nimble */,
+			);
 			productName = MachinusTests;
 			productReference = 6C920DD4221187630084E6E8 /* MachinusTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -188,7 +207,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1010;
-				LastUpgradeCheck = 1010;
+				LastUpgradeCheck = 1250;
 				ORGANIZATIONNAME = "Derek Clarkson";
 				TargetAttributes = {
 					6C920DCA221187630084E6E8 = {
@@ -202,7 +221,7 @@
 				};
 			};
 			buildConfigurationList = 6C920DC5221187630084E6E8 /* Build configuration list for PBXProject "Machinus" */;
-			compatibilityVersion = "Xcode 9.3";
+			compatibilityVersion = "Xcode 13.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -210,6 +229,9 @@
 				Base,
 			);
 			mainGroup = 6C920DC1221187630084E6E8;
+			packageReferences = (
+				6CA26BA82670EC3600FE23A9 /* XCRemoteSwiftPackageReference "nimble" */,
+			);
 			productRefGroup = 6C920DCC221187630084E6E8 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -237,38 +259,19 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		6C920DEF221190C40084E6E8 /* Copy frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(PROJECT_DIR)/Carthage/Build/iOS/Nimble.framework",
-			);
-			name = "Copy frameworks";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "carthage copy-frameworks\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		6C920DC7221187630084E6E8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C258BE122439DA40033F66E /* MachinusError.swift in Sources */,
+				6CB3C903266B41980054887B /* StateIdentifier.swift in Sources */,
+				6CA26BAE2673044F00FE23A9 /* BackgroundStateConfig.swift in Sources */,
+				6CA26BB22673046D00FE23A9 /* FinalStateConfig.swift in Sources */,
+				6C258BE122439DA40033F66E /* StateMachineError.swift in Sources */,
+				6CA26BB02673045E00FE23A9 /* GlobalStateConfig.swift in Sources */,
 				6CFBB324221D8B08007E6722 /* Notifications.swift in Sources */,
 				6C920DE622118BBF0084E6E8 /* StateConfig.swift in Sources */,
-				6C258BE322439DEF0033F66E /* StateMachine.swift in Sources */,
-				6C920DE822118BCB0084E6E8 /* Machinus.swift in Sources */,
+				6C920DE822118BCB0084E6E8 /* StateMachine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,7 +279,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6C920DDA221187630084E6E8 /* MachinusTests.swift in Sources */,
+				6C920DDA221187630084E6E8 /* StateMachineTests.swift in Sources */,
 				6C0BF6D0247BDB2300279FFA /* CombineTests.swift in Sources */,
 				6C83733B222D3C39001C57E6 /* NotificationTests.swift in Sources */,
 				6C920DEA22118CB20084E6E8 /* StateConfigTests.swift in Sources */,
@@ -320,6 +323,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -384,6 +388,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -424,8 +429,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = 3MHZ7974Y8;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 0.1.2;
+				DYLIB_COMPATIBILITY_VERSION = 0.2.0;
+				DYLIB_CURRENT_VERSION = 0.2.0;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = Machinus/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
@@ -435,7 +440,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = au.com.derekclarkson.Machinus;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -453,8 +458,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
 				DEVELOPMENT_TEAM = 3MHZ7974Y8;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 0.1.2;
+				DYLIB_COMPATIBILITY_VERSION = 0.2.0;
+				DYLIB_CURRENT_VERSION = 0.2.0;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = Machinus/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
@@ -464,7 +469,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.3;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = au.com.derekclarkson.Machinus;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -478,11 +483,8 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2.0;
 				DEVELOPMENT_TEAM = 3MHZ7974Y8;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Carthage/Build/iOS",
-				);
 				INFOPLIST_FILE = MachinusTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -502,11 +504,8 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2.0;
 				DEVELOPMENT_TEAM = 3MHZ7974Y8;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Carthage/Build/iOS",
-				);
 				INFOPLIST_FILE = MachinusTests/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -552,6 +551,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6CA26BA82670EC3600FE23A9 /* XCRemoteSwiftPackageReference "nimble" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/quick/nimble";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6CA26BA92670EC3600FE23A9 /* Nimble */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6CA26BA82670EC3600FE23A9 /* XCRemoteSwiftPackageReference "nimble" */;
+			productName = Nimble;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6C920DC2221187630084E6E8 /* Project object */;
 }

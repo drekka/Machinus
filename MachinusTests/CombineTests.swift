@@ -17,13 +17,13 @@ enum State: StateIdentifier {
 
 class CombineTests: XCTestCase {
 
-    var machine: Machinus<State>!
+    var machine: StateMachine<State>!
 
     override func setUp() {
-        let state1 = StateConfig<State>(identifier: .first, allowedTransitions: .second)
-        let state2 = StateConfig<State>(identifier: .second, allowedTransitions: .third)
-        let state3 = StateConfig<State>(identifier: .third, allowedTransitions: .first)
-        machine = Machinus(withStates: state1, state2, state3)
+        let state1 = StateConfig<State>(.first, canTransitionTo: .second)
+        let state2 = StateConfig<State>(.second, canTransitionTo: .third)
+        let state3 = StateConfig<State>(.third, canTransitionTo: .first)
+        machine = StateMachine(withStates: state1, state2, state3)
     }
 
     func testReceivingUpdates() {
@@ -45,8 +45,8 @@ class CombineTests: XCTestCase {
         }
 
         withExtendedLifetime(cancellable) {
-            machine.transition(toState: .second) { _,_ in }
-            machine.transition(toState: .third) { _,_ in }
+            machine.transition(to: .second)
+            machine.transition(to: .third)
 
             waitForExpectations(timeout: 3.0)
         }
@@ -65,18 +65,18 @@ class CombineTests: XCTestCase {
         }
 
         withExtendedLifetime(cancellable) {
-            machine.transition(toState: .second) { _,_ in }
+            machine.transition(to: .second)
             waitForExpectations(timeout: 3.0)
 
             cancellable.cancel()
-            machine.transition(toState: .third) { _,_ in }
+            machine.transition(to: .third)
         }
     }
 
     func testMultipleSubscribers() {
 
-        let firstSubscriberTransition = self.expectation(description: "1st to second")
-        let secondSubscriberTransition = self.expectation(description: "2nd to second")
+        let firstSubscriberTransition = self.expectation(description: "1st subscriber to second state")
+        let secondSubscriberTransition = self.expectation(description: "2nd subscriber to second state")
 
         let cancellables = [
             machine.sink { newState in
@@ -92,7 +92,7 @@ class CombineTests: XCTestCase {
         ]
 
         withExtendedLifetime(cancellables) {
-            machine.transition(toState: .second) { _,_ in }
+            machine.transition(to: .second)
             waitForExpectations(timeout: 3.0)
         }
     }
