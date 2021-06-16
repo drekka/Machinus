@@ -330,7 +330,7 @@ public class StateMachine<T> where T: StateIdentifier {
             return barrier().asPreflightResponse
         }
 
-        guard currentStateConfig.canTransition(toState: toState) else {
+        guard toState is GlobalStateConfig || currentStateConfig.canTransition(toState: toState) else {
             os_log(.debug, "🤖 %@: Illegal transition", name)
             return .fail(error: .illegalTransition)
         }

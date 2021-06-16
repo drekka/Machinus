@@ -251,6 +251,18 @@ class StateMachineTests: XCTestCase {
         machine.synchronousMode = true
         expect(machine.transition()).toEventually(throwAssertion())
     }
+    
+    // MARK: - Global states
+    
+    func testTransitionToGlobal() {
+        let machine = StateMachine {
+            StateConfig<MyState>(.aaa)
+            StateConfig<MyState>(.bbb)
+            StateConfig<MyState>(.global)
+        }
+
+        machine.transition(to: .global)
+    }
 
     // MARK: - Background transitions
 
@@ -292,6 +304,30 @@ class StateMachineTests: XCTestCase {
 
         expect(backgroundExit) == true
         expect(aaaEnter) == false
+    }
+
+    func testMachineReturnsToForegroundWithRedirect() {
+
+        var aaaEnter = false
+        var bbbEnter = false
+        var backgroundExit = false
+
+        let machine = StateMachine {
+            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, transitionBarrier: { return .redirect(to: .bbb) })
+            StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true })
+            BackgroundStateConfig<MyState>(.background, didExit: { _ in backgroundExit = true })
+        }
+        machine.synchronousMode = true
+
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+        expect(machine.state).toEventually(equal(.background))
+
+        NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
+        expect(machine.state).toEventually(equal(.bbb))
+
+        expect(backgroundExit) == true
+        expect(aaaEnter) == false
+        expect(bbbEnter) == false
     }
 
     // MARK: - Internal
