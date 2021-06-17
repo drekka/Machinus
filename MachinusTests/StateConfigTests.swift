@@ -6,9 +6,9 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
 @testable import Machinus
 import Nimble
+import XCTest
 
 class StateConfigTests: XCTestCase {
 
@@ -20,27 +20,27 @@ class StateConfigTests: XCTestCase {
         case background
     }
 
-    private var stateA: StateConfig<MyState> = StateConfig(.aaa,                 canTransitionTo: .bbb)
+    private var stateA: StateConfig<MyState> = StateConfig(.aaa, canTransitionTo: .bbb)
     private var stateAA: StateConfig<MyState> = StateConfig(.aaa)
     private var stateB: StateConfig<MyState> = StateConfig(.bbb)
-    private var global: GlobalStateConfig<MyState> = GlobalStateConfig(.global,                 canTransitionTo: .aaa)
-    private var final: FinalStateConfig<MyState> = FinalStateConfig(.final)
-    private var background: BackgroundStateConfig<MyState> = BackgroundStateConfig(.background)
+    private var global: StateConfig<MyState> = StateConfig.global(.global, canTransitionTo: .aaa)
+    private var final: StateConfig<MyState> = StateConfig.final(.final)
+    private var background: StateConfig<MyState> = StateConfig.background(.background)
 
     // MARK: - Hashable
 
     func testHashValue() {
         expect(self.stateA.hashValue) == MyState.aaa.hashValue
     }
-    
+
     // MARK: - Custom debug string convertable
-    
+
     func testCustomDebugStringConvertable() {
         expect(self.stateA.debugDescription) == "aaa"
         expect(self.stateAA.debugDescription) == "aaa"
         expect(self.stateB.debugDescription) == "bbb"
     }
-    
+
     // MARK: - Equatable
 
     func testEquatableConfigEqualsConfig() {

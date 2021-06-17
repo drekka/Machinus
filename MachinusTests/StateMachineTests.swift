@@ -53,8 +53,8 @@ class StateMachineTests: XCTestCase {
     func testInitWithMultipleBackgroundStatesGeneratesFatal() {
         expect(_ = StateMachine {
             StateConfig<MyState>(.aaa)
-            BackgroundStateConfig<MyState>(.background)
-            BackgroundStateConfig<MyState>(.ccc)
+            StateConfig<MyState>.background(.background)
+            StateConfig<MyState>.background(.ccc)
         }).to(throwAssertion())
     }
 
@@ -220,7 +220,18 @@ class StateMachineTests: XCTestCase {
     func testTransitionFromFinalGeneratesError() {
 
         let machine = StateMachine {
-            FinalStateConfig<MyState>(.aaa)
+            StateConfig<MyState>.final(.aaa)
+            StateConfig<MyState>(.bbb)
+            StateConfig<MyState>(.ccc)
+        }
+
+        transition(machine, to: .bbb, toFailWith: .finalState)
+    }
+
+    func testTransitionFromFinalGlobalGeneratesError() {
+
+        let machine = StateMachine {
+            StateConfig<MyState>.finalGlobal(.aaa)
             StateConfig<MyState>(.bbb)
             StateConfig<MyState>(.ccc)
         }
@@ -258,7 +269,17 @@ class StateMachineTests: XCTestCase {
         let machine = StateMachine {
             StateConfig<MyState>(.aaa)
             StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.global)
+            StateConfig<MyState>.global(.global)
+        }
+
+        machine.transition(to: .global)
+    }
+
+    func testTransitionToFinalGlobal() {
+        let machine = StateMachine {
+            StateConfig<MyState>(.aaa)
+            StateConfig<MyState>(.bbb)
+            StateConfig<MyState>.finalGlobal(.global)
         }
 
         machine.transition(to: .global)
@@ -274,7 +295,7 @@ class StateMachineTests: XCTestCase {
         let machine = StateMachine {
             StateConfig<MyState>(.aaa, didExit: { _ in aaaExit = true })
             StateConfig<MyState>(.bbb)
-            BackgroundStateConfig<MyState>(.background, didEnter: { _ in backgroundEnter = true })
+            StateConfig<MyState>.background(.background, didEnter: { _ in backgroundEnter = true })
         }
 
         NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
@@ -292,7 +313,7 @@ class StateMachineTests: XCTestCase {
         let machine = StateMachine {
             StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true })
             StateConfig<MyState>(.bbb)
-            BackgroundStateConfig<MyState>(.background, didExit: { _ in backgroundExit = true })
+            StateConfig<MyState>.background(.background, didExit: { _ in backgroundExit = true })
         }
         machine.synchronousMode = true
 
@@ -315,7 +336,7 @@ class StateMachineTests: XCTestCase {
         let machine = StateMachine {
             StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, transitionBarrier: { return .redirect(to: .bbb) })
             StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true })
-            BackgroundStateConfig<MyState>(.background, didExit: { _ in backgroundExit = true })
+            StateConfig<MyState>.background(.background, didExit: { _ in backgroundExit = true })
         }
         machine.synchronousMode = true
 

@@ -133,11 +133,11 @@ public class StateMachine<T> where T: StateIdentifier {
             }
             stateConfigs[state.identifier] = state
 
-            if let backgroundState = state as? BackgroundStateConfig {
+            if state.features.contains(.background) {
                 if self.backgroundState != nil {
                     fatalError("🤖 Only one background is allowed per state machine. Both \(String(describing: backgroundState)) and \(String(describing: state)) are defined as background states.")
                 }
-                self.backgroundState = backgroundState.identifier
+                self.backgroundState = state.identifier
             }
         }
     }
@@ -313,13 +313,13 @@ public class StateMachine<T> where T: StateIdentifier {
         let currentStateConfig = self.stateConfig(forState: self.state)
         
         // If the state is the same state then do nothing.
-        guard currentStateConfig != toState else {
+        if currentStateConfig == toState {
             os_log(.debug, "🤖 %@: Already in state %@", name, String(describing: currentStateConfig))
             return .fail(error: .alreadyInState)
         }
 
         // Check for a final state transition
-        if currentStateConfig is FinalStateConfig {
+        if currentStateConfig.features.contains(.final) {
             os_log(.error, "🤖 %@: Final state, cannot transition", name)
             return .fail(error: .finalState)
         }
@@ -330,7 +330,7 @@ public class StateMachine<T> where T: StateIdentifier {
             return barrier().asPreflightResponse
         }
 
-        guard toState is GlobalStateConfig || currentStateConfig.canTransition(toState: toState) else {
+        guard toState.features.contains(.global) || currentStateConfig.canTransition(toState: toState) else {
             os_log(.debug, "🤖 %@: Illegal transition", name)
             return .fail(error: .illegalTransition)
         }
