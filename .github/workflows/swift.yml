@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest, iOS-latest
+    runs-on: macos-latest
 
     steps:
     - uses: actions/checkout@v3
@@ -19,8 +19,10 @@ jobs:
         xcode-version: latest-stable
     #- name: Build
     #  run: swift build -v
-    - name: Run tests
+    - name: Run MacOS tests
       run: swift test # --enable-code-coverage
+    - name: Run iOS tests
+      run: xcodebuild -scheme Machinus test -destination "platform=iOS Simulator,name=iPhone 14,OS=latest" # --enable-code-coverage
       
     # - name: Convert coverage to lcov
       # run: xcrun llvm-cov export -instr-profile .build/debug/codecov/default.profdata -format="lcov" .build/debug/VoodooPackageTests.xctest/Contents/MacOS/VoodooPackageTests  > coverage.lcov
