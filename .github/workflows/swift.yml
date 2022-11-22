@@ -1,0 +1,27 @@
+# This workflow will build a Swift project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+
+name: Swift
+
+on:
+  push:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: macos-latest, iOS-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+    #- name: Build
+    #  run: swift build -v
+    - name: Run tests
+      run: swift test # --enable-code-coverage
+      
+    # - name: Convert coverage to lcov
+      # run: xcrun llvm-cov export -instr-profile .build/debug/codecov/default.profdata -format="lcov" .build/debug/VoodooPackageTests.xctest/Contents/MacOS/VoodooPackageTests  > coverage.lcov
+
