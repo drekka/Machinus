@@ -7,7 +7,9 @@
 //
 
 import Combine
+import Foundation
 import os
+import UIKit
 
 /// Defines the closures called after a state change finishes.
 /// - parameter result: A result that either contains the previous state, or an error if the transition failed.
@@ -65,7 +67,7 @@ public class StateMachine<T> where T: StateIdentifier {
     private var didTransition: DidTransitionAction<T>?
     private var backgroundObserver: Any?
     private var foregroundObserver: Any?
-    
+
     /// Internal for testing.
     var synchronousMode = false
 
@@ -76,7 +78,7 @@ public class StateMachine<T> where T: StateIdentifier {
 
     /// Readonly access to the machine's current state.
     public var state: T {
-        return currentState.value
+        currentState.value
     }
 
     /// If set to true, causes the machine to issue state change notifications through the default notification center.
@@ -148,7 +150,7 @@ public class StateMachine<T> where T: StateIdentifier {
     public func reset() {
         queueTransition { [weak self] in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             os_log(.debug, "🤖 %@: Resetting to initial state", self.name)
             let fromState = self.state
@@ -166,7 +168,7 @@ public class StateMachine<T> where T: StateIdentifier {
     public func transition(completion: TransitionCompletion<T>? = nil) {
         queueTransition { [weak self] in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             guard let dynamicClosure = self.stateConfigs[self.state]?.dynamicTransition else {
                 fatalError("🤖 No dynamic transition defined for \(self.state)")
@@ -183,7 +185,7 @@ public class StateMachine<T> where T: StateIdentifier {
     public func transition(to state: T, completion: TransitionCompletion<T>? = nil) {
         queueTransition { [weak self] in
 
-            guard let self = self else { return }
+            guard let self else { return }
 
             self.transitionToState(self.stateConfig(forState: state), completion: completion)
         }
@@ -195,19 +197,19 @@ public class StateMachine<T> where T: StateIdentifier {
     private func queueTransition(_ block: @escaping () -> Void) {
 
         let execute: () -> Void = { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             os_log(.debug, "🤖 %@: Initiating transition", self.name)
             self.transitionLock.lock()
             block()
             self.transitionLock.unlock()
         }
-        
+
         os_log(.debug, "🤖 %@: Adding locked transition block to queue", name)
         if synchronousMode {
             execute()
             return
         }
-        
+
         transitionQ.async(execute: execute)
     }
 
@@ -215,13 +217,13 @@ public class StateMachine<T> where T: StateIdentifier {
 
         os_log(.debug, "🤖 %@: Watching application background notification", name)
         backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
-            guard let self = self else { return }
+            guard let self else { return }
             os_log(.debug, "🤖 %@: Background notification received", self.name)
             self.transitionToBackground()
         }
 
         foregroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
-            guard let self = self else { return }
+            guard let self else { return }
             os_log(.debug, "🤖 %@: Foreground notification received", self.name)
             self.transitionToForeground()
         }
@@ -249,18 +251,18 @@ public class StateMachine<T> where T: StateIdentifier {
 
     private func transitionToForeground() {
         queueTransition {
-            
+
             var state: T = self.restoreState
-            
+
             /// Allow for a transition barrier to redirect.
-            
+
             let restoreStateConfig = self.stateConfig(forState: self.restoreState)
             if let barrier = restoreStateConfig.transitionBarrier,
                case BarrierResponse.redirect(to: let redirectState) = barrier() {
                 os_log(.debug, "🤖 %@: Transition barrier of %@ redirecting to %@", self.name, String(describing: self.restoreState), String(describing: redirectState))
                 state = redirectState
             }
-            
+
             os_log(.debug, "🤖 %@: Transitioning to foreground, restoring state .%@", self.name, String(describing: self.restoreState))
             self.currentState.value = state
             self.stateConfig(forState: self.backgroundState).didExit?(state)
@@ -291,7 +293,7 @@ public class StateMachine<T> where T: StateIdentifier {
     private func transition(toState: StateConfig<T>, completion: TransitionCompletion<T>?) {
 
         os_log(.debug, "🤖 %@: Executing transition ...", name)
-        let fromState = self.stateConfig(forState: self.state)
+        let fromState = stateConfig(forState: state)
         currentState.value = toState.identifier
 
         fromState.didExit?(toState.identifier)
@@ -310,8 +312,8 @@ public class StateMachine<T> where T: StateIdentifier {
 
         os_log(.debug, "🤖 %@: Preflighting transition to .%@", name, String(describing: state))
 
-        let currentStateConfig = self.stateConfig(forState: self.state)
-        
+        let currentStateConfig = stateConfig(forState: state)
+
         // If the state is the same state then do nothing.
         if currentStateConfig == toState {
             os_log(.debug, "🤖 %@: Already in state %@", name, String(describing: currentStateConfig))
@@ -351,6 +353,6 @@ public class StateMachine<T> where T: StateIdentifier {
 /// Extension that provides combine support to the machine.
 extension StateMachine: Publisher {
     public func receive<S>(subscriber: S) where S: Subscriber, S.Input == Output, S.Failure == Failure {
-        return currentState.receive(subscriber: subscriber)
+        currentState.receive(subscriber: subscriber)
     }
 }

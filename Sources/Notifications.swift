@@ -6,6 +6,8 @@
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
+import Foundation
+
 /// State change keys for notifications.
 private enum StateChange: String {
     case notificationName
