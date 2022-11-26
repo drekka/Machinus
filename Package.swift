@@ -1,28 +1,33 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.7
+
 import PackageDescription
 
 let package = Package(
     name: "Machinus",
     platforms: [
-      .macOS(.v10_10), .iOS(.v9), .tvOS(.v9)
+        .macOS(.v12),
+        .iOS(.v15),
+        .tvOS(.v15),
     ],
     products: [
         .library(name: "Machinus", targets: ["Machinus"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/quick/nimble", .upToNextMajor(from: "10.0.0")),
     ],
     targets: [
         .target(
             name: "Machinus",
-            dependencies: [
-            ],
-            exclude: ["Info.plist"]
+            dependencies: [],
+            path: "Sources"
         ),
         .testTarget(
             name: "MachinusTests",
-            dependencies: ["Machinus"],
-            exclude: ["objc", "Info.plist"]
+            dependencies: [
+                "Machinus",
+                .product(name: "Nimble", package: "nimble"),
+            ],
+            path: "Tests"
         ),
-    ],
-    swiftLanguageVersions: [.v5]
+    ]
 )
