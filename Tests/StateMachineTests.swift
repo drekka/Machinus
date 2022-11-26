@@ -10,7 +10,6 @@
 import Nimble
 import XCTest
 
-
 class StateMachineTests: XCTestCase {
 
     // MARK: - Lifecycle
@@ -97,62 +96,63 @@ class StateMachineTests: XCTestCase {
 //        expect(machine.transition(to: .final)).to(throwAssertion())
     }
 
-    func testTransitionStateConfigEnterAndExitClosuresCalled() {
+    func testTransitionClosuresInCorrectOrder() {
 
-        var aaaEnter = false
-        var aaaExit = false
-        var bbbEnter = false
-        var bbbExit = false
-        var cccEnter = false
-        var cccExit = false
-
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, didExit: { _ in aaaExit = true }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true }, didExit: { _ in bbbExit = true }, canTransitionTo: .ccc)
-            StateConfig<MyState>(.ccc, didEnter: { _ in cccEnter = true }, didExit: { _ in cccExit = true })
+        var log: [String] = []
+        let machine = StateMachine<MyState> { old, new in
+            log.append("\(old) -> \(new)")
+        }
+        withStates: {
+            StateConfig<MyState>(.aaa, didEnter: { _ in log.append("aaaEnter") }, didExit: { _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.bbb, didEnter: { _ in log.append("bbbEnter") }, didExit: { _ in log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<MyState>(.ccc, didEnter: { _ in log.append("cccEnter") }, didExit: { _ in log.append("cccExit") })
         }
 
         machine.transition(to: .bbb)
         expect(machine.state).toEventually(equal(.bbb))
-        expect(aaaEnter) == false
-        expect(aaaExit) == true
-        expect(bbbEnter) == true
-        expect(bbbExit) == false
-        expect(cccEnter) == false
-        expect(cccExit) == false
-
-        aaaExit = false
-        bbbEnter = false
+        expect(log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
 
         machine.transition(to: .ccc)
         expect(machine.state).toEventually(equal(.ccc))
-        expect(aaaEnter) == false
-        expect(aaaExit) == false
-        expect(bbbEnter) == false
-        expect(bbbExit) == true
-        expect(cccEnter) == true
-        expect(cccExit) == false
+        expect(log) == ["aaaExit", "bbbEnter", "aaa -> bbb", "bbbExit", "cccEnter", "bbb -> ccc"]
+    }
+
+    func testTransitionClosuresInCorrectOrderWhenNestedStateChange() {
+
+        var log: [String] = []
+        var machineRef: StateMachine<MyState>!
+        let machine = StateMachine<MyState> { old, new in
+            log.append("\(old) -> \(new)")
+        }
+        withStates: {
+            StateConfig<MyState>(.aaa, didEnter: { _ in log.append("aaaEnter") }, didExit: { _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.bbb, didEnter: { _ in
+                log.append("bbbEnter")
+                machineRef.transition(to: .ccc)
+            }, didExit: { _ in log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<MyState>(.ccc, didEnter: { _ in log.append("cccEnter") }, didExit: { _ in log.append("cccExit") })
+        }
+        machineRef = machine
+
+        machine.transition(to: .bbb)
+        expect(machine.state).toEventually(equal(.bbb))
+        expect(log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
+
+        expect(machine.state).toEventually(equal(.ccc))
+        expect(log) == ["aaaExit", "bbbEnter", "aaa -> bbb", "bbbExit", "cccEnter", "bbb -> ccc"]
     }
 
     func testTransitionToSameStateGeneratesErrorAndDoesntCallClosures() {
 
-        var aaaEnter = false
-        var aaaExit = false
-        var bbbEnter = false
-        var bbbExit = false
-
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, didExit: { _ in aaaExit = true })
-            StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true }, didExit: { _ in bbbExit = true })
+        var log: [String] = []
+        let machine = StateMachine<MyState> {
+            StateConfig<MyState>(.aaa, didEnter: { _ in log.append("aaaEnter") }, didExit: { _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.bbb, didEnter: { _ in log.append("bbbEnter") }, didExit: { _ in log.append("bbbExit") }, canTransitionTo: .ccc)
             StateConfig<MyState>(.ccc)
         }
 
         expectTransition(machine, to: .aaa, toFailWith: .alreadyInState)
-
-        expect(aaaEnter) == false
-        expect(aaaExit) == false
-        expect(bbbEnter) == false
-        expect(bbbExit) == false
+        expect(log) == []
     }
 
     func testTransitionToStateNotInAllowedListGeneratesError() {
