@@ -8,11 +8,11 @@
 
 /// Defines an action to be executed against the state being transitioned to.
 /// - parameter previousState: The state being left.
-public typealias NextStateAction<T> = (_ previousState: T) -> Void where T: StateIdentifier
+public typealias DidEnterAction<T> = (_ previousState: T) -> Void where T: StateIdentifier
 
 /// Defines an action to be executed against the state being transitioned from.
 /// - parameter nextState: The new stae of the machine.
-public typealias PreviousStateAction<T> = (_ nextState: T) -> Void where T: StateIdentifier
+public typealias DidExitAction<T> = (_ nextState: T) -> Void where T: StateIdentifier
 
 /// Closure called to dynamically perform a transition.
 public typealias TransitionFactory<T> = () -> T where T: StateIdentifier
@@ -26,9 +26,11 @@ public typealias TransitionBarrier<T> = () -> BarrierResponse<T> where T: StateI
 /// Used to define config special features.
 struct Features: OptionSet {
     let rawValue: Int
-    static let background = Features(rawValue: 1 << 0)
-    static let final = Features(rawValue: 1 << 1)
-    static let global = Features(rawValue: 1 << 2)
+    static let final = Features(rawValue: 1 << 0)
+    static let global = Features(rawValue: 1 << 1)
+    #if os(iOS) || os(tvOS)
+        static let background = Features(rawValue: 1 << 2)
+    #endif
 }
 
 /// Possible responses from a transition barrier.
@@ -54,8 +56,8 @@ public class StateConfig<T> where T: StateIdentifier {
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
     let identifier: T
     let features: Features
-    let didExit: PreviousStateAction<T>?
-    let didEnter: NextStateAction<T>?
+    let didExit: DidExitAction<T>?
+    let didEnter: DidEnterAction<T>?
     let dynamicTransition: TransitionFactory<T>?
     let transitionBarrier: TransitionBarrier<T>?
     private let allowedTransitions: [T]
@@ -73,8 +75,8 @@ public class StateConfig<T> where T: StateIdentifier {
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
     public convenience init(_ identifier: T,
-                            didEnter: NextStateAction<T>? = nil,
-                            didExit: PreviousStateAction<T>? = nil,
+                            didEnter: DidEnterAction<T>? = nil,
+                            didExit: DidExitAction<T>? = nil,
                             dynamicTransition: TransitionFactory<T>? = nil,
                             transitionBarrier: TransitionBarrier<T>? = nil,
                             canTransitionTo: T...) {
@@ -90,8 +92,8 @@ public class StateConfig<T> where T: StateIdentifier {
     // Master initialiser
     init(_ identifier: T,
          features: Features,
-         didEnter: NextStateAction<T>? = nil,
-         didExit: PreviousStateAction<T>? = nil,
+         didEnter: DidEnterAction<T>? = nil,
+         didExit: DidExitAction<T>? = nil,
          dynamicTransition: TransitionFactory<T>? = nil,
          transitionBarrier: TransitionBarrier<T>? = nil,
          canTransitionTo: [T] = []) {
@@ -106,18 +108,20 @@ public class StateConfig<T> where T: StateIdentifier {
 
     // MARK: - Factories
 
-    /**
-     Builds a background state.
+    #if os(iOS) || os(tvOS)
+        /**
+         Builds a background state.
 
-     - parameter identifier: The unique identifier of the state.
-     - parameter didEnter: A closure to execute after entering this state.
-     - parameter didExit: A closure that is executed after exiting this state.
-     */
-    public static func background(_ identifier: T,
-                                  didEnter: NextStateAction<T>? = nil,
-                                  didExit: PreviousStateAction<T>? = nil) -> StateConfig<T> {
-        return StateConfig(identifier, features: .background, didEnter: didEnter, didExit: didExit)
-    }
+         - parameter identifier: The unique identifier of the state.
+         - parameter didEnter: A closure to execute after entering this state.
+         - parameter didExit: A closure that is executed after exiting this state.
+         */
+        public static func background(_ identifier: T,
+                                      didEnter: DidEnterAction<T>? = nil,
+                                      didExit: DidExitAction<T>? = nil) -> StateConfig<T> {
+            StateConfig(identifier, features: .background, didEnter: didEnter, didExit: didExit)
+        }
+    #endif
 
     /**
      Global state factory.
@@ -130,18 +134,18 @@ public class StateConfig<T> where T: StateIdentifier {
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
     public static func global(_ identifier: T,
-                              didEnter: NextStateAction<T>? = nil,
-                              didExit: PreviousStateAction<T>? = nil,
+                              didEnter: DidEnterAction<T>? = nil,
+                              didExit: DidExitAction<T>? = nil,
                               dynamicTransition: TransitionFactory<T>? = nil,
                               transitionBarrier: TransitionBarrier<T>? = nil,
                               canTransitionTo: T...) -> StateConfig<T> {
-        return StateConfig(identifier,
-                           features: .global,
-                           didEnter: didEnter,
-                           didExit: didExit,
-                           dynamicTransition: dynamicTransition,
-                           transitionBarrier: transitionBarrier,
-                           canTransitionTo: canTransitionTo)
+        StateConfig(identifier,
+                    features: .global,
+                    didEnter: didEnter,
+                    didExit: didExit,
+                    dynamicTransition: dynamicTransition,
+                    transitionBarrier: transitionBarrier,
+                    canTransitionTo: canTransitionTo)
     }
 
     /**
@@ -152,9 +156,9 @@ public class StateConfig<T> where T: StateIdentifier {
      - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      */
     public static func final(_ identifier: T,
-                             didEnter: NextStateAction<T>? = nil,
+                             didEnter: DidEnterAction<T>? = nil,
                              transitionBarrier: TransitionBarrier<T>? = nil) -> StateConfig<T> {
-        return StateConfig(identifier, features: .final, didEnter: didEnter, transitionBarrier: transitionBarrier)
+        StateConfig(identifier, features: .final, didEnter: didEnter, transitionBarrier: transitionBarrier)
     }
 
     /**
@@ -165,9 +169,9 @@ public class StateConfig<T> where T: StateIdentifier {
      - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      */
     public static func finalGlobal(_ identifier: T,
-                                   didEnter: NextStateAction<T>? = nil,
+                                   didEnter: DidEnterAction<T>? = nil,
                                    transitionBarrier: TransitionBarrier<T>? = nil) -> StateConfig<T> {
-        return StateConfig(identifier, features: [.global, .final], didEnter: didEnter, transitionBarrier: transitionBarrier)
+        StateConfig(identifier, features: [.global, .final], didEnter: didEnter, transitionBarrier: transitionBarrier)
     }
 
     // MARK: - Internal
@@ -179,7 +183,7 @@ public class StateConfig<T> where T: StateIdentifier {
      - returns: true if a transition from this state to the other state is allowed.
      */
     func canTransition(toState: StateConfig<T>) -> Bool {
-        return allowedTransitions.contains(toState.identifier)
+        allowedTransitions.contains(toState.identifier)
     }
 }
 
@@ -187,7 +191,7 @@ public class StateConfig<T> where T: StateIdentifier {
 
 extension StateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        return String(describing: identifier)
+        String(describing: identifier)
     }
 }
 
@@ -200,22 +204,22 @@ extension StateConfig: Hashable {
     }
 
     public static func == (lhs: StateConfig<T>, rhs: StateConfig<T>) -> Bool {
-        return lhs.identifier == rhs.identifier
+        lhs.identifier == rhs.identifier
     }
 
     public static func == (lhs: T, rhs: StateConfig<T>) -> Bool {
-        return lhs == rhs.identifier
+        lhs == rhs.identifier
     }
 
     public static func == (lhs: StateConfig<T>, rhs: T) -> Bool {
-        return lhs.identifier == rhs
+        lhs.identifier == rhs
     }
 
     public static func != (lhs: T, rhs: StateConfig<T>) -> Bool {
-        return lhs != rhs.identifier
+        lhs != rhs.identifier
     }
 
     public static func != (lhs: StateConfig<T>, rhs: T) -> Bool {
-        return lhs.identifier != rhs
+        lhs.identifier != rhs
     }
 }

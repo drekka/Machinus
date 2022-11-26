@@ -6,8 +6,10 @@
 //  Copyright © 2020 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
+import Combine
 import Machinus
+import Nimble
+import XCTest
 
 enum State: StateIdentifier {
     case first
@@ -18,82 +20,69 @@ enum State: StateIdentifier {
 class CombineTests: XCTestCase {
 
     var machine: StateMachine<State>!
+    var state: State?
+    var cancellable: AnyCancellable?
 
     override func setUp() {
+
+        state = nil
         let state1 = StateConfig<State>(.first, canTransitionTo: .second)
         let state2 = StateConfig<State>(.second, canTransitionTo: .third)
         let state3 = StateConfig<State>(.third, canTransitionTo: .first)
+
         machine = StateMachine(withStates: state1, state2, state3)
-    }
 
-    func testReceivingUpdates() {
-
-        let initialState = self.expectation(description: "initial state")
-        let firstTransition = self.expectation(description: "to second")
-        let secondTransition = self.expectation(description: "to third")
-
-        let cancellable = machine.sink { newState in
+        cancellable = machine.sink { newState in
             print("Received " + String(describing: newState))
-            switch newState {
-            case .first:
-                initialState.fulfill()
-            case .second:
-                firstTransition.fulfill()
-            case .third:
-                secondTransition.fulfill()
-            }
-        }
-
-        withExtendedLifetime(cancellable) {
-            machine.transition(to: .second)
-            machine.transition(to: .third)
-
-            waitForExpectations(timeout: 3.0)
+            self.state = newState
         }
     }
 
-    func testCancelling() {
+    func testReceivingUpdatesWhenStateChanges() {
+        expect(self.state).toEventually(equal(.first))
+        machine.transition(to: .second)
+        expect(self.state).toEventually(equal(.second))
+        machine.transition(to: .third)
+        expect(self.state).toEventually(equal(.third))
+    }
 
-        let firstTransition = self.expectation(description: "to second")
+    func testCancellingTheSubscriptionStopsUpdates() {
 
-        let cancellable = machine.sink { newState in
-            if newState == .second {
-                firstTransition.fulfill()
-            } else if newState == .third {
-                XCTFail("Second transition should not be received.")
-            }
-        }
+        expect(self.state).toEventually(equal(.first))
+        machine.transition(to: .second)
+        expect(self.state).toEventually(equal(.second))
 
-        withExtendedLifetime(cancellable) {
-            machine.transition(to: .second)
-            waitForExpectations(timeout: 3.0)
+        cancellable?.cancel()
+        cancellable = nil
 
-            cancellable.cancel()
-            machine.transition(to: .third)
-        }
+        machine.transition(to: .third)
+        expect(self.state).toNever(equal(.third))
     }
 
     func testMultipleSubscribers() {
 
-        let firstSubscriberTransition = self.expectation(description: "1st subscriber to second state")
-        let secondSubscriberTransition = self.expectation(description: "2nd subscriber to second state")
+        var state1: State?
+        var state2: State?
 
         let cancellables = [
             machine.sink { newState in
-                if newState == .second {
-                    firstSubscriberTransition.fulfill()
-                }
+                state1 = newState
             },
             machine.sink { newState in
-                if newState == .second {
-                    secondSubscriberTransition.fulfill()
-                }
-            }
+                state2 = newState
+            },
         ]
 
-        withExtendedLifetime(cancellables) {
-            machine.transition(to: .second)
-            waitForExpectations(timeout: 3.0)
-        }
+        expect(state1).toEventually(equal(.first))
+        expect(state2).toEventually(equal(.first))
+
+        machine.transition(to: .second)
+        expect(state1).toEventually(equal(.second))
+        expect(state2).toEventually(equal(.second))
+
+        cancellables[1].cancel()
+        machine.transition(to: .third)
+        expect(state1).toEventually(equal(.third))
+        expect(state2).toNever(equal(.third))
     }
 }

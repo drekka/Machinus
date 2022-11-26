@@ -17,7 +17,6 @@ class StateConfigTests: XCTestCase {
         case bbb
         case global
         case final
-        case background
     }
 
     private var stateA: StateConfig<MyState> = StateConfig(.aaa, canTransitionTo: .bbb)
@@ -25,7 +24,6 @@ class StateConfigTests: XCTestCase {
     private var stateB: StateConfig<MyState> = StateConfig(.bbb)
     private var global: StateConfig<MyState> = StateConfig.global(.global, canTransitionTo: .aaa)
     private var final: StateConfig<MyState> = StateConfig.final(.final)
-    private var background: StateConfig<MyState> = StateConfig.background(.background)
 
     // MARK: - Hashable
 
