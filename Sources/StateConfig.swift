@@ -3,12 +3,14 @@
 //
 
 /// Defines an action to be executed against the state being transitioned to.
+/// - parameter machine: A reference to the state machine.
 /// - parameter previousState: The state being left.
-public typealias DidEnter<S> = (_ previousState: S) async -> Void where S: StateIdentifier
+public typealias DidEnter<S> = (_ machine: StateMachine<S>, _ previousState: S) async -> Void where S: StateIdentifier
 
 /// Defines an action to be executed against the state being transitioned from.
+/// - parameter machine: A reference to the state machine.
 /// - parameter nextState: The new state of the machine.
-public typealias DidExit<S> = (_ nextState: S) async -> Void where S: StateIdentifier
+public typealias DidExit<S> = (_ machine: StateMachine<S>, _ nextState: S) async -> Void where S: StateIdentifier
 
 /// Closure called to dynamically perform a transition.
 public typealias DynamicTransition<S> = () async -> S where S: StateIdentifier

@@ -49,7 +49,7 @@ class StateMachineTests: XCTestCase {
         var aaaEnter = false
 
         let machine = try await StateMachine {
-            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.aaa, didEnter: { _, _ in aaaEnter = true }, canTransitionTo: .bbb)
             StateConfig<MyState>(.bbb)
             StateConfig<MyState>(.ccc)
         }
@@ -77,7 +77,7 @@ class StateMachineTests: XCTestCase {
     }
 
     func testTransitionClosureCalled() async throws {
-        var callback: (MyState, MyState)?
+        var callback: (StateMachine<MyState>, MyState)?
         let machine = try await StateMachine {
             callback = ($0, $1)
         }
@@ -88,8 +88,9 @@ class StateMachineTests: XCTestCase {
         }
 
         await machine.transition(to: .bbb)
-        await expect(callback?.0).toEventually(equal(.aaa))
-        expect(callback?.1) == .bbb
+        await expect(callback?.0).toEventuallyNot(beNil())
+        expect(callback?.0.state) == .bbb
+        expect(callback?.1) == .aaa
     }
 
     func testTransitionToUnregisteredStateFails() async throws {
@@ -109,13 +110,13 @@ class StateMachineTests: XCTestCase {
     func testTransitionClosuresInCorrectOrder() async throws {
 
         var log: [String] = []
-        let machine = try await StateMachine<MyState> { old, new in
-            log.append("\(old) -> \(new)")
+        let machine = try await StateMachine<MyState> { machine, old in
+            log.append("\(old) -> \(machine.state)")
         }
         withStates: {
-            StateConfig<MyState>(.aaa, didEnter: { _ in log.append("aaaEnter") }, didExit: { _ in log.append("aaaExit") }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, didEnter: { _ in log.append("bbbEnter") }, didExit: { _ in log.append("bbbExit") }, canTransitionTo: .ccc)
-            StateConfig<MyState>(.ccc, didEnter: { _ in log.append("cccEnter") }, didExit: { _ in log.append("cccExit") })
+            StateConfig<MyState>(.aaa, didEnter: { _, _ in log.append("aaaEnter") }, didExit: { _, _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.bbb, didEnter: { _, _ in log.append("bbbEnter") }, didExit: { _, _ in log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<MyState>(.ccc, didEnter: { _, _ in log.append("cccEnter") }, didExit: { _, _ in log.append("cccExit") })
         }
 
         await machine.transition(to: .bbb)
@@ -130,19 +131,23 @@ class StateMachineTests: XCTestCase {
     func testTransitionClosuresInCorrectOrderWhenNestedStateChange() async throws {
 
         var log: [String] = []
-        var machineRef: StateMachine<MyState>!
-        let machine = try await StateMachine<MyState> { old, new in
-            log.append("\(old) -> \(new)")
+        let machine = try await StateMachine<MyState> { machine, old in
+            log.append("\(old) -> \(machine.state)")
         }
         withStates: {
-            StateConfig<MyState>(.aaa, didEnter: { _ in log.append("aaaEnter") }, didExit: { _ in log.append("aaaExit") }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, didEnter: { _ in
-                log.append("bbbEnter")
-                await machineRef.transition(to: .ccc)
-            }, didExit: { _ in log.append("bbbExit") }, canTransitionTo: .ccc)
-            StateConfig<MyState>(.ccc, didEnter: { _ in log.append("cccEnter") }, didExit: { _ in log.append("cccExit") })
+            StateConfig<MyState>(.aaa,
+                                 didEnter: { _, _ in log.append("aaaEnter") },
+                                 didExit: { _, _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.bbb,
+                                 didEnter: { machine, _ in
+                                     log.append("bbbEnter")
+                                     await machine.transition(to: .ccc)
+                                 },
+                                 didExit: { _, _ in log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<MyState>(.ccc,
+                                 didEnter: { _, _ in log.append("cccEnter") },
+                                 didExit: { _, _ in log.append("cccExit") })
         }
-        machineRef = machine
 
         await machine.transition(to: .bbb)
         await expect(machine.state).toEventually(equal(.ccc))
@@ -153,8 +158,8 @@ class StateMachineTests: XCTestCase {
 
         var log: [String] = []
         let machine = try await StateMachine<MyState> {
-            StateConfig<MyState>(.aaa, didEnter: { _ in log.append("aaaEnter") }, didExit: { _ in log.append("aaaExit") }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, didEnter: { _ in log.append("bbbEnter") }, didExit: { _ in log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<MyState>(.aaa, didEnter: { _, _ in log.append("aaaEnter") }, didExit: { _, _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<MyState>(.bbb, didEnter: { _, _ in log.append("bbbEnter") }, didExit: { _, _ in log.append("bbbExit") }, canTransitionTo: .ccc)
             StateConfig<MyState>(.ccc)
         }
 
@@ -264,7 +269,7 @@ class StateMachineTests: XCTestCase {
         await machine.transition(to: .global)
     }
 
-    func testTransitionToFinalGlobal() async throws{
+    func testTransitionToFinalGlobal() async throws {
         let machine = try await StateMachine {
             StateConfig<MyState>(.aaa)
             StateConfig<MyState>(.bbb)
