@@ -137,7 +137,8 @@ class StateMachineTests: XCTestCase {
         withStates: {
             StateConfig<MyState>(.aaa,
                                  didEnter: { _, _ in log.append("aaaEnter") },
-                                 didExit: { _, _ in log.append("aaaExit") }, canTransitionTo: .bbb)
+                                 didExit: { _, _ in log.append("aaaExit") },
+                                 canTransitionTo: .bbb)
             StateConfig<MyState>(.bbb,
                                  didEnter: { machine, _ in
                                      log.append("bbbEnter")

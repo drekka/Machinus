@@ -60,11 +60,9 @@ public actor StateMachine<S> where S: StateIdentifier {
     ///
     /// - parameters:
     ///     - name: The unique name of this state machine. If not passed then a unique UUID is used. Mostly used in logging.
-    ///     - queue: The `DispatchQueue` to schedule transitions on. By defaults this is `DispatchQueue.main`.
-    ///     - didTransition: A closure that is called after every a transition, Takes both the old and new states as arguments.
+    ///     - didTransition: A closure that is called after every a transition, Takes the machine the old state as arguments.
     ///     - state: A builder that defines a list of states.
     public init(name: String? = nil,
-                queue: DispatchQueue? = nil,
                 didTransition: DidTransition<S>? = nil,
                 @StateConfigBuilder<S> withStates states: () -> [StateConfig<S>]) async throws {
 
