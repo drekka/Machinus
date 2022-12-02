@@ -1,14 +1,11 @@
 //
-//  NotificationTests.swift
-//  MachinusTests
-//
 //  Created by Derek Clarkson on 4/3/19.
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
-import XCTest
 import Machinus
 import Nimble
+import XCTest
 
 class NotificationTests: XCTestCase {
 
@@ -18,41 +15,51 @@ class NotificationTests: XCTestCase {
         case ccc
     }
 
-    private var stateA: StateConfig<MyState>!
-    private var stateB: StateConfig<MyState>!
-    private var stateC: StateConfig<MyState>! // Because machines must have 3 states.
+    private var stateA: StateConfig<MyState> = StateConfig(.aaa, canTransitionTo: .bbb)
+    private var stateB: StateConfig<MyState> = StateConfig(.bbb)
+    private var stateC: StateConfig<MyState> = StateConfig(.ccc) // Because machines must have 3 states.
 
     private var machine: StateMachine<MyState>!
+    private var observer: Any?
 
-    override func setUp() {
-        super.setUp()
-
-        self.stateA = StateConfig(.aaa,                 canTransitionTo: .bbb)
-        self.stateB = StateConfig(.bbb)
-        self.stateC = StateConfig(.ccc)
-
-        self.machine = StateMachine(withStates: stateA, stateB, stateC)
+    override func tearDown() {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        super.tearDown()
     }
 
-    func testWatchingStateChanges() {
+    override func setUp() async throws {
 
-        let exp = expectation(description: "Waiting for notification")
-        var observer: Any?
-        observer = NotificationCenter.default.addStateChangeObserver { [weak self] (sm: StateMachine<MyState>, fromState: MyState, toState: MyState) in
-            NotificationCenter.default.removeObserver(observer!)
-            expect(sm) === self?.machine
-            expect(fromState) == .aaa
-            expect(toState) == .bbb
-            exp.fulfill()
+        try await super.setUp()
+
+        machine = try await StateMachine {
+            stateA
+            stateB
+            stateC
+        }
+    }
+
+    func testWatchingStateChanges() async throws {
+
+        var observedMachine: StateMachine<MyState>?
+        var fromState: MyState?
+        var toState: MyState?
+        observer = NotificationCenter.default.addStateChangeObserver { (sm: StateMachine<MyState>, from: MyState, to: MyState) in
+            print("State changed")
+            observedMachine = sm
+            fromState = from
+            toState = to
         }
 
-        self.machine!.postNotifications = true
-        self.machine!.transition(to: .bbb) { result in
-            if case .failure(let error) = result {
-                XCTFail(error.localizedDescription)
-            }
-        }
+        await machine.postNotifications(true)
+        await machine.transition(to: .bbb)
 
-        waitForExpectations(timeout: 3.0)
+        await expect(self.machine.state).toEventually(equal(.bbb))
+
+        await expect(observedMachine).toEventuallyNot(beNil())
+        expect(observedMachine) === machine
+        expect(fromState) == .aaa
+        expect(toState) == .bbb
     }
 }

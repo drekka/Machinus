@@ -1,7 +1,4 @@
 //
-//  Notifications.swift
-//  Machinus
-//
 //  Created by Derek Clarkson on 21/2/19.
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
@@ -26,8 +23,8 @@ public extension NotificationCenter {
       - Parameter machine: The machine that just had a state change.
       - Parameter oldState: The previous state of the machine.
      */
-    func postStateChange<T>(machine: StateMachine<T>, oldState: T) {
-        post(.stateChange(machine: machine, oldState: oldState))
+    func postStateChange<S>(machine: StateMachine<S>, oldState: S) async {
+        await post(.stateChange(machine: machine, oldState: oldState))
     }
 
     /**
@@ -40,9 +37,9 @@ public extension NotificationCenter {
       - Parameter fromState: The previous state of the machine.
       - Parameter toState: The new state of the machine.
      */
-    func addStateChangeObserver<T>(_ observer: @escaping (_ machine: StateMachine<T>, _ fromState: T, _ toState: T) -> Void) -> Any {
+    func addStateChangeObserver<S>(_ observer: @escaping (_ machine: StateMachine<S>, _ fromState: S, _ toState: S) -> Void) -> Any {
         return addObserver(forName: .stateChange, object: nil, queue: nil) { notification in
-            if let data: (machine: StateMachine<T>, fromState: T, toState: T) = notification.stateChangeInfo() {
+            if let data: (machine: StateMachine<S>, fromState: S, toState: S) = notification.stateChangeInfo() {
                 observer(data.machine, data.fromState, data.toState)
             }
         }
@@ -55,19 +52,19 @@ public extension Notification.Name {
 
 extension Notification {
 
-    static func stateChange<T>(machine: StateMachine<T>, oldState: T) -> Notification {
+    static func stateChange<S>(machine: StateMachine<S>, oldState: S) async -> Notification {
         return Notification(name: .stateChange, object: machine, userInfo: [
             StateChange.fromState.rawValue: oldState,
             StateChange.toState.rawValue: machine.state,
         ])
     }
 
-    func stateChangeInfo<T>() -> (machine: StateMachine<T>, fromState: T, toState: T)? {
+    func stateChangeInfo<S>() -> (machine: StateMachine<S>, fromState: S, toState: S)? {
 
-        guard let machine = object as? StateMachine<T>,
+        guard let machine = object as? StateMachine<S>,
               let info = userInfo,
-              let fromState = info[StateChange.fromState.rawValue] as? T,
-              let toState = info[StateChange.toState.rawValue] as? T else {
+              let fromState = info[StateChange.fromState.rawValue] as? S,
+              let toState = info[StateChange.toState.rawValue] as? S else {
             return nil
         }
 

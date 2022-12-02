@@ -1,7 +1,4 @@
 //
-//  StateTests.swift
-//  MachinusTests
-//
 //  Created by Derek Clarkson on 11/2/19.
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
@@ -33,10 +30,10 @@ class StateConfigTests: XCTestCase {
 
     // MARK: - Custom debug string convertable
 
-    func testCustomDebugStringConvertable() {
-        expect(self.stateA.debugDescription) == "aaa"
-        expect(self.stateAA.debugDescription) == "aaa"
-        expect(self.stateB.debugDescription) == "bbb"
+    func testCustomStringConvertable() {
+        expect(self.stateA.description) == ".aaa"
+        expect(self.stateAA.description) == ".aaa"
+        expect(self.stateB.description) == ".bbb"
     }
 
     // MARK: - Equatable

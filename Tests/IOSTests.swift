@@ -1,7 +1,4 @@
 //
-//  File.swift
-//
-//
 //  Created by Derek Clarkson on 23/11/2022.
 //
 
@@ -13,76 +10,75 @@ import XCTest
 #if os(iOS) || os(tvOS)
     class IOSTests: XCTestCase {
 
-        func testInitWithMultipleBackgroundStatesGeneratesFatal() {
-            expect(_ = StateMachine {
-                StateConfig<MyState>(.aaa)
-                StateConfig<MyState>.background(.background)
-                StateConfig<MyState>.background(.ccc)
-            }).to(throwAssertion())
+        private var log: [String]!
+        override func setUp() {
+            super.setUp()
+            log = []
         }
 
-        func testMachineGoesIntoBackground() {
+        func testInitWithMultipleBackgroundStatesFails() async throws {
+            do {
+                _ = try await StateMachine {
+                    StateConfig<MyState>(.aaa)
+                    StateConfig<MyState>.background(.background) // Background state 1
+                    StateConfig<MyState>.background(.ccc) // Background state 2
+                }
+            } catch StateMachineError.configurationError(let message) {
+                expect(message) == "Multiple background states detected. Only one is allowed."
+            }
+        }
 
-            var aaaExit = false
-            var backgroundEnter = false
+        func testMachineGoesIntoBackground() async throws {
 
-            let machine = StateMachine {
-                StateConfig<MyState>(.aaa, didExit: { _ in aaaExit = true })
+            let machine = try await StateMachine {
+                StateConfig<MyState>(.aaa, didExit: { _ in self.log.append("aaaExit") }) // Should not be called.
                 StateConfig<MyState>(.bbb)
-                StateConfig<MyState>.background(.background, didEnter: { _ in backgroundEnter = true })
+                StateConfig<MyState>.background(.background, didEnter: { _ in self.log.append("backgroundEnter") })
             }
 
-            NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-            expect(machine.state).toEventually(equal(.background))
+            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+            await expect(machine.state).toEventually(equal(.background))
 
-            expect(aaaExit) == false
-            expect(backgroundEnter) == true
+            expect(self.log) == ["backgroundEnter"]
         }
 
-        func testMachineReturnsToForeground() {
+        func testMachineReturnsToForeground() async throws {
 
-            var aaaEnter = false
-            var backgroundExit = false
-
-            let machine = StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true })
+            let machine = try await StateMachine {
+                StateConfig<MyState>(.aaa, didEnter: { _ in self.log.append("aaaEnter") }) // Should not be called
                 StateConfig<MyState>(.bbb)
-                StateConfig<MyState>.background(.background, didExit: { _ in backgroundExit = true })
+                StateConfig<MyState>.background(.background, didExit: { _ in self.log.append("backgroundExit") })
             }
 
-            NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
 
-            expect(machine.state).toEventually(equal(.background))
+            await expect(machine.state).toEventually(equal(.background))
 
-            NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
+            await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
 
-            expect(machine.state).toEventually(equal(.aaa))
+            await expect(machine.state).toEventually(equal(.aaa))
 
-            expect(backgroundExit) == true
-            expect(aaaEnter) == false
+            expect(self.log) == ["backgroundExit"]
         }
 
-        func testMachineReturnsToForegroundWithRedirect() {
+        func testMachineReturnsToForegroundThenRedirects() async throws {
 
-            var aaaEnter = false
-            var bbbEnter = false
-            var backgroundExit = false
-
-            let machine = StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, transitionBarrier: { .redirect(to: .bbb) })
-                StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true })
-                StateConfig<MyState>.background(.background, didExit: { _ in backgroundExit = true })
+            let machine = try await StateMachine {
+                StateConfig<MyState>(.aaa, didEnter: { _ in self.log.append("aaaEnter") }, transitionBarrier: { .redirect(to: .bbb) }) // Should not be called
+                StateConfig<MyState>(.bbb, didEnter: { _ in self.log.append("bbbEnter") }) // Also should not be called.
+                StateConfig<MyState>.background(.background, didExit: { _ in
+                    self.log.append("backgroundExit")
+                    
+                })
             }
 
-            NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-            expect(machine.state).toEventually(equal(.background))
+            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+            await expect(machine.state).toEventually(equal(.background))
 
-            NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
-            expect(machine.state).toEventually(equal(.bbb))
+            await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
+            await expect(machine.state).toEventually(equal(.bbb))
 
-            expect(backgroundExit) == true
-            expect(aaaEnter) == false
-            expect(bbbEnter) == false
+            expect(self.log) == ["backgroundExit"]
         }
     }
 #endif

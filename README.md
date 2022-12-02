@@ -394,7 +394,7 @@ Machinus is Combine aware with the machine being a Combine `Publisher`. Here's a
 
 ```swift
 machine.sink { newState in
-                print("Received " + String(describing: newState))
+                print("Received \(newState)")
                  switch newState {
                       case .loggedIn:
                            displayUsersHomeScreen()
