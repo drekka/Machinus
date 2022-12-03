@@ -9,15 +9,11 @@
     import os
     import UIKit
 
-    /// Provides additional functionality to statemachines running on iOS. Primarily the ability to track the
+    /// Provides additional functionality to state machines running on iOS. Primarily the ability to track the
     /// background state of the app and respond to it being moved in and out of the background.
-    actor IOSStateObserver<S> where S: StateIdentifier {
-
-        // BAck reference to the state machine.
-        private weak var machine: StateMachine<S>?
+    actor IOSPlatform<S>: Platform where S: StateIdentifier {
 
         private var restoreState: StateConfig<S>?
-        private let backgroundState: StateConfig<S>
         private var backgroundObserver: Any?
         private var foregroundObserver: Any?
 
@@ -30,52 +26,52 @@
             }
         }
 
-        /// Mutating from a non-ioslated state (ie. from an external task) requires a async method to compile.
+        /// Mutating from a non-isolated state (ie. from an external task) requires a async method to compile.
         func setRestoreState(_ state: StateConfig<S>?) async {
             restoreState = state
         }
 
-        init?(machine: StateMachine<S>, states: [StateConfig<S>]) async throws {
+        init() {}
 
-            self.machine = machine
+        func configure(for machine: any Machine<S>) async throws {
 
             // Set the background state.
-            let backgroundStates = states.filter { $0.features.contains(.background) }
-            guard let background = backgroundStates.first else {
-                return nil
-            }
-            backgroundState = background
+            let backgroundStates = machine.stateConfigs.values.filter { $0.features.contains(.background) }
             if backgroundStates.endIndex > 1 {
                 throw StateMachineError.configurationError("Multiple background states detected. Only one is allowed.")
+            }
+            guard let backgroundState = backgroundStates.first else {
+                // No background state so nothing to observe.
+                return
             }
 
             systemLog.trace("🤖 [\(machine.name)] Watching application background notification")
 
             backgroundObserver = await NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification,
                                                                               object: nil,
-                                                                              queue: nil) { _ in
-                Task { [weak self, weak machine] in
-                    guard let self, let machine else { return }
-                    await self.setRestoreState(await machine.transition(toBackground: self.backgroundState))
+                                                                              queue: nil) { [weak self, weak machine] _ in
+                guard let self, let machine else { return }
+                Task {
+                    await self.setRestoreState(await machine.transition(toBackground: backgroundState))
                 }
             }
 
             foregroundObserver = await NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification,
                                                                               object: nil,
-                                                                              queue: nil) { _ in
-                Task { [weak self, weak machine] in
-                    guard let self, let machine else { return }
-                    await machine.restore(self.restoreState, from: self.backgroundState)
+                                                                              queue: nil) { [weak self, weak machine] _ in
+                guard let self, let machine else { return }
+                Task {
+                    await machine.restore(self.restoreState, from: backgroundState)
                     await self.setRestoreState(nil)
                 }
             }
         }
     }
 
-    extension StateMachine {
+    extension Machine {
 
         func transition(toBackground backgroundState: StateConfig<S>) async -> StateConfig<S> {
-            return await transition(toState: backgroundState, didExit: nil, didEnter: backgroundState.didEnter)
+            await transition(toState: backgroundState, didExit: nil, didEnter: backgroundState.didEnter)
         }
 
         func restore(_ restoreState: StateConfig<S>?, from backgroundState: StateConfig<S>) async {
@@ -88,7 +84,7 @@
                 switch await barrier() {
 
                 case .redirect(to: let redirect):
-                    guard let redirectState = try? stateConfig(for: redirect) else { return }
+                    guard let redirectState = try? stateConfigs.config(for: redirect) else { return }
                     systemLog.trace("🤖 [\(self.name)] Transition barrier for \(restoreState) redirecting to \(redirectState))")
                     await restore(redirectState, from: backgroundState)
                     return

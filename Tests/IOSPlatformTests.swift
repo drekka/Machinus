@@ -8,7 +8,7 @@ import Nimble
 import XCTest
 
 #if os(iOS) || os(tvOS)
-    class IOSTests: XCTestCase {
+    class IOSPlatformTests: XCTestCase {
 
         private var log: [String]!
         override func setUp() {
@@ -31,9 +31,9 @@ import XCTest
         func testMachineGoesIntoBackground() async throws {
 
             let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didExit: { _ in self.log.append("aaaExit") }) // Should not be called.
+                StateConfig<MyState>(.aaa, didExit: { _, _ in self.log.append("aaaExit") }) // Should not be called.
                 StateConfig<MyState>(.bbb)
-                StateConfig<MyState>.background(.background, didEnter: { _ in self.log.append("backgroundEnter") })
+                StateConfig<MyState>.background(.background, didEnter: { _, _ in self.log.append("backgroundEnter") })
             }
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
@@ -45,9 +45,9 @@ import XCTest
         func testMachineReturnsToForeground() async throws {
 
             let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _ in self.log.append("aaaEnter") }) // Should not be called
+                StateConfig<MyState>(.aaa, didEnter: { _, _ in self.log.append("aaaEnter") }) // Should not be called
                 StateConfig<MyState>(.bbb)
-                StateConfig<MyState>.background(.background, didExit: { _ in self.log.append("backgroundExit") })
+                StateConfig<MyState>.background(.background, didExit: { _, _ in self.log.append("backgroundExit") })
             }
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
@@ -64,9 +64,9 @@ import XCTest
         func testMachineReturnsToForegroundThenRedirects() async throws {
 
             let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _ in self.log.append("aaaEnter") }, transitionBarrier: { .redirect(to: .bbb) }) // Should not be called
-                StateConfig<MyState>(.bbb, didEnter: { _ in self.log.append("bbbEnter") }) // Also should not be called.
-                StateConfig<MyState>.background(.background, didExit: { _ in
+                StateConfig<MyState>(.aaa, didEnter: { _, _ in self.log.append("aaaEnter") }, transitionBarrier: { .redirect(to: .bbb) }) // Should not be called
+                StateConfig<MyState>(.bbb, didEnter: { _, _ in self.log.append("bbbEnter") }) // Also should not be called.
+                StateConfig<MyState>.background(.background, didExit: { _, _ in
                     self.log.append("backgroundExit")
                     
                 })

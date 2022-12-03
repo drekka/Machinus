@@ -31,13 +31,15 @@ public actor StateMachine<S> where S: StateIdentifier {
         case redirect(to: S)
     }
 
-    private let stateConfigs: [S: StateConfig<S>]
     private let didTransition: DidTransition<S>?
     private let initialState: StateConfig<S>
     private var postTransitionNotifications = false
     private var transitionQueue: [() async -> Void] = []
     private var executingTransition: Task<Void, Error>?
     private let currentStateSubject: CurrentValueSubject<StateConfig<S>, StateMachineError>
+    private let platform: any Platform<S>
+
+    let stateConfigs: [S: StateConfig<S>]
 
     nonisolated var currentStateConfig: StateConfig<S> {
         currentStateSubject.value
@@ -46,10 +48,6 @@ public actor StateMachine<S> where S: StateIdentifier {
     public nonisolated var state: S {
         currentStateConfig.identifier
     }
-
-    #if os(iOS) || os(tvOS)
-        var iosStateObserver: IOSStateObserver<S>?
-    #endif
 
     /// The name of the machine. By default this is a random UUID combined with the type of the state identifiers.
     let name: String
@@ -83,8 +81,11 @@ public actor StateMachine<S> where S: StateIdentifier {
         }
 
         #if os(iOS) || os(tvOS)
-            iosStateObserver = try await IOSStateObserver(machine: self, states: stateList)
+            platform = IOSPlatform()
+        #else
+            platform = MacOSPlatform()
         #endif
+        try await platform.configure(for: self)
     }
 
     /// If set to true, causes the machine to issue state change notifications through the default notification center.
@@ -151,13 +152,6 @@ public actor StateMachine<S> where S: StateIdentifier {
         executeNextTransition()
     }
 
-    func stateConfig(for state: S) throws -> StateConfig<S> {
-        guard let config = stateConfigs[state] else {
-            throw StateMachineError.unknownState(state)
-        }
-        return config
-    }
-
     // If not already executing, execute the next block.
     private func executeNextTransition() {
 
@@ -178,7 +172,7 @@ public actor StateMachine<S> where S: StateIdentifier {
 
     private func transitionToState(_ newState: S) async throws -> StateConfig<S> {
 
-        let nextState = try stateConfig(for: newState)
+        let nextState = try stateConfigs.config(for: newState)
 
         switch await preflightTransition(fromState: currentStateConfig, toState: nextState) {
 
@@ -248,6 +242,19 @@ public actor StateMachine<S> where S: StateIdentifier {
         await didEnter?(self, fromState.identifier)
         await didTransition?(self, fromState.identifier)
         return fromState
+    }
+}
+
+// MARK: - Support
+
+extension Dictionary where Key: StateIdentifier, Value == StateConfig<Key> {
+
+    /// Wrapper around the default subscript that throws if a value is not found.
+    func config(for state: Key) throws -> StateConfig<Key> {
+        guard let config = self[state] else {
+            throw StateMachineError.unknownState(state)
+        }
+        return config
     }
 }
 
