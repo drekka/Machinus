@@ -18,7 +18,7 @@ class StateMachineTests: XCTestCase {
             StateConfig<MyState>(.ccc)
         }
         func hex(_ length: Int) -> String { "[0-9A-Za-z]{\(length)}" }
-        await expect({ await machine.name }).to(match("\(hex(8))-\(hex(4))-\(hex(4))-\(hex(4))-\(hex(12))<MyState>"))
+        expect({ machine.name }).to(match("\(hex(8))-\(hex(4))-\(hex(4))-\(hex(4))-\(hex(12))<MyState>"))
     }
 
     func testInitWithLessThan3StatesGeneratesFatal() async throws {

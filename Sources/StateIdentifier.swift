@@ -12,7 +12,7 @@ public protocol StateIdentifier: Hashable {}
 public extension StateIdentifier {
 
     /// Used during logging to inject a descriptive representation of the state.
-    var loggingIndentifier: String {
+    var loggingIdentifier: String {
         ".\(self)"
     }
 }
@@ -20,6 +20,6 @@ public extension StateIdentifier {
 extension StateConfig: CustomStringConvertible {
 
     public var description: String {
-        identifier.loggingIndentifier
+        identifier.loggingIdentifier
     }
 }

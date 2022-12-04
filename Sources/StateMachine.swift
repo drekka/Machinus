@@ -32,15 +32,15 @@ public actor StateMachine<S> where S: StateIdentifier {
     }
 
     private let didTransition: DidTransition<S>?
-    private let initialState: StateConfig<S>
     private var postTransitionNotifications = false
     private var transitionQueue: [() async -> Void] = []
     private var executingTransition: Task<Void, Error>?
     private let currentStateSubject: CurrentValueSubject<StateConfig<S>, StateMachineError>
     private let platform: any Platform<S>
 
-    let stateConfigs: [S: StateConfig<S>]
-
+    nonisolated let name: String
+    nonisolated let stateConfigs: [S: StateConfig<S>]
+    nonisolated let initialState: StateConfig<S>
     nonisolated var currentStateConfig: StateConfig<S> {
         currentStateSubject.value
     }
@@ -48,9 +48,6 @@ public actor StateMachine<S> where S: StateIdentifier {
     public nonisolated var state: S {
         currentStateConfig.identifier
     }
-
-    /// The name of the machine. By default this is a random UUID combined with the type of the state identifiers.
-    let name: String
 
     // MARK: - Lifecycle
 
@@ -101,25 +98,25 @@ public actor StateMachine<S> where S: StateIdentifier {
     /// initial state's `didEnter` closure. everything else is ignored. A ``reset(completion:)`` call does not clear any pending transitions as it
     /// is assumed to be part of the flow.
     public func reset(completion: ((Result<S, StateMachineError>) -> Void)? = nil) {
-        queue(withCompletion: completion) { [weak self] in
-            guard let self else { return nil }
-            systemLog.trace("🤖 [\(self.name)] Resetting to initial state")
-            return await self.transition(toState: self.initialState, didExit: nil, didEnter: self.initialState.didEnter)
-        }
+        queue(transition: { machine in
+                  systemLog.trace("🤖 [\(machine.name)] Resetting to initial state")
+                  return await machine.transition(toState: machine.initialState, didExit: nil, didEnter: machine.initialState.didEnter)
+              },
+              completion: completion)
     }
 
     /// Requests a dynamic transition where the dynamic transition closure of the current state is executed to obtain the next state of the machine.
     ///
     /// - parameter completion: A closure that will be executed when the transition is completed.
     public func transition(completion: ((Result<S, StateMachineError>) -> Void)? = nil) {
-        queue(withCompletion: completion) { [weak self] in
-            guard let self else { return nil }
-            guard let dynamicClosure = self.currentStateConfig.dynamicTransition else {
-                throw StateMachineError.noDynamicClosure(self.state)
-            }
-            systemLog.trace("🤖 [\(self.name)] Running dynamic transition")
-            return try await self.transitionToState(await dynamicClosure())
-        }
+        queue(transition: { machine in
+                  guard let dynamicClosure = machine.currentStateConfig.dynamicTransition else {
+                      throw StateMachineError.noDynamicClosure(machine.state)
+                  }
+                  systemLog.trace("🤖 [\(machine.name)] Running dynamic transition")
+                  return try await machine.transitionToState(await dynamicClosure())
+              },
+              completion: completion)
     }
 
     /// Requests a transition to a specific state.
@@ -127,25 +124,25 @@ public actor StateMachine<S> where S: StateIdentifier {
     /// - parameter state: The state to transition to.
     /// - parameter completion: A closure that will be executed when the transition is completed.
     public func transition(to state: S, completion: ((Result<S, StateMachineError>) -> Void)? = nil) {
-        queue(withCompletion: completion) { [weak self] in
-            try await self?.transitionToState(state)
-        }
+        queue(transition: { machine in
+                  try await machine.transitionToState(state)
+              },
+              completion: completion)
     }
 
-    // MARK: - Internal
+    // MARK: - Transition sequence
 
-    private func queue(withCompletion complete: ((Result<S, StateMachineError>) -> Void)?, transition: @escaping () async throws -> StateConfig<S>?) {
-        transitionQueue.insert({
+    func queue(transition: @escaping (any Machine<S>) async throws -> StateConfig<S>, completion: ((Result<S, StateMachineError>) -> Void)?) {
+        transitionQueue.insert({ [weak self] in
+                                   guard let self else { return }
                                    do {
-                                       guard let priorState = try await transition() else {
-                                           return
-                                       }
-                                       complete?(.success(priorState.identifier))
+                                       let priorState = try await transition(self)
+                                       completion?(.success(priorState.identifier))
                                    } catch let error as StateMachineError {
-                                       complete?(.failure(error))
+                                       completion?(.failure(error))
                                    } catch {
                                        systemLog.trace("🤖 [\(self.name)] Unexpected error detected: \(error.localizedDescription).")
-                                       complete?(.failure(StateMachineError.unexpectedError(error)))
+                                       completion?(.failure(StateMachineError.unexpectedError(error)))
                                    }
                                },
                                at: 0)
@@ -156,21 +153,21 @@ public actor StateMachine<S> where S: StateIdentifier {
     private func executeNextTransition() {
 
         guard executingTransition == nil else {
-            systemLog.trace("🤖 [\(self.name)] Transition already in flight, ignoring request.")
+            systemLog.trace("🤖 [\(self.name)] Transition already in flight, waiting until it is finished.")
             return
         }
 
-        if let nextBlock = transitionQueue.popLast() {
+        if let nextTransition = transitionQueue.popLast() {
             systemLog.trace("🤖 [\(self.name)] Found pending transition, initiating new task.")
             executingTransition = Task {
-                await nextBlock()
+                await nextTransition()
                 executingTransition = nil
                 executeNextTransition()
             }
         }
     }
 
-    private func transitionToState(_ newState: S) async throws -> StateConfig<S> {
+    func transitionToState(_ newState: S) async throws -> StateConfig<S> {
 
         let nextState = try stateConfigs.config(for: newState)
 
@@ -181,7 +178,7 @@ public actor StateMachine<S> where S: StateIdentifier {
             throw error
 
         case .redirect(to: let redirectState):
-            systemLog.trace("🤖 [\(self.name)] Preflight redirecting to: \(redirectState.loggingIndentifier)")
+            systemLog.trace("🤖 [\(self.name)] Preflight redirecting to: \(redirectState.loggingIdentifier)")
             return try await transitionToState(redirectState)
 
         case .allow:

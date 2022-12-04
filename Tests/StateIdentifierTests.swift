@@ -15,6 +15,6 @@ class StateIdentifierTests: XCTestCase {
 
     func testDescription() {
         expect("\(TestState.xyz)") == "xyz"
-        expect(TestState.xyz.loggingIndentifier) == ".xyz"
+        expect(TestState.xyz.loggingIdentifier) == ".xyz"
     }
 }
