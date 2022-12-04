@@ -174,14 +174,45 @@ public class StateConfig<S> where S: StateIdentifier {
 
     // MARK: - Internal
 
-    /**
-     Returns true if a transition to the specified state is allowed.
+    /// Possible results of the transition pre-flight.
+    enum PreflightResponse<S> where S: StateIdentifier {
+        case allow
+        case fail(error: StateMachineError)
+        case redirect(to: S)
+    }
 
-     - parameter toState: The state that is being queried.
-     - returns: true if a transition from this state to the other state is allowed.
-     */
-    func canTransition(toState: StateConfig<S>) -> Bool {
-        allowedTransitions.contains(toState.identifier)
+    func preflightTransition(toState: StateConfig<S>, inMachine machine: any Machine<S>) async -> PreflightResponse<S> {
+
+        systemLog.trace("🤖 [\(machine.name)] Preflighting transition to \(toState)")
+
+        // If the state is the same state then do nothing.
+        if toState == self {
+            systemLog.trace("🤖 [\(machine.name)] Already in state \(self)")
+            return .fail(error: .alreadyInState)
+        }
+
+        // Check for a final state transition
+        if features.contains(.final) {
+            systemLog.error("🤖 [\(machine.name)] Final state, cannot transition")
+            return .fail(error: .illegalTransition)
+        }
+
+        /// Process the registered transition barrier.
+        if let barrier = toState.transitionBarrier {
+            systemLog.trace("🤖 [\(machine.name)] Executing transition barrier")
+            switch await barrier() {
+            case .allow: return .allow
+            case .fail: return .fail(error: .transitionDenied)
+            case .redirect(to: let redirectState): return .redirect(to: redirectState)
+            }
+        }
+
+        guard allowedTransitions.contains(toState.identifier) || toState.features.contains(.global) else {
+            systemLog.trace("🤖 [\(machine.name)] Illegal transition")
+            return .fail(error: .illegalTransition)
+        }
+
+        return .allow
     }
 }
 

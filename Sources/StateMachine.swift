@@ -24,13 +24,6 @@ public struct StateConfigBuilder<S> where S: StateIdentifier {
 /// The implementation of a state machine.
 public actor StateMachine<S> where S: StateIdentifier {
 
-    /// Possible results of the transition pre-flight.
-    enum PreflightResponse<S> where S: StateIdentifier {
-        case allow
-        case fail(error: StateMachineError)
-        case redirect(to: S)
-    }
-
     private let didTransition: DidTransition<S>?
     private var postTransitionNotifications = false
     private var transitionQueue: [() async -> Void] = []
@@ -44,7 +37,6 @@ public actor StateMachine<S> where S: StateIdentifier {
     nonisolated var currentStateConfig: StateConfig<S> {
         currentStateSubject.value
     }
-
     public nonisolated var state: S {
         currentStateConfig.identifier
     }
@@ -171,7 +163,7 @@ public actor StateMachine<S> where S: StateIdentifier {
 
         let nextState = try stateConfigs.config(for: newState)
 
-        switch await preflightTransition(fromState: currentStateConfig, toState: nextState) {
+        switch await currentStateConfig.preflightTransition(toState: nextState, inMachine: self) {
 
         case .fail(error: let error):
             systemLog.trace("🤖 [\(self.name)] Preflight failed: \(error.localizedDescription)")
@@ -191,40 +183,6 @@ public actor StateMachine<S> where S: StateIdentifier {
             }
             return fromState
         }
-    }
-
-    private func preflightTransition(fromState: StateConfig<S>, toState: StateConfig<S>) async -> PreflightResponse<S> {
-
-        systemLog.trace("🤖 [\(self.name)] Preflighting transition to \(toState)")
-
-        // If the state is the same state then do nothing.
-        if fromState == toState {
-            systemLog.trace("🤖 [\(self.name)] Already in state \(fromState)")
-            return .fail(error: .alreadyInState)
-        }
-
-        // Check for a final state transition
-        if fromState.features.contains(.final) {
-            systemLog.error("🤖 [\(self.name)] Final state, cannot transition")
-            return .fail(error: .illegalTransition)
-        }
-
-        /// Process the registered transition barrier.
-        if let barrier = toState.transitionBarrier {
-            systemLog.trace("🤖 [\(self.name)] Executing transition barrier")
-            switch await barrier() {
-            case .allow: return .allow
-            case .fail: return .fail(error: .transitionDenied)
-            case .redirect(to: let redirectState): return .redirect(to: redirectState)
-            }
-        }
-
-        guard toState.features.contains(.global) || fromState.canTransition(toState: toState) else {
-            systemLog.trace("🤖 [\(self.name)] Illegal transition")
-            return .fail(error: .illegalTransition)
-        }
-
-        return .allow
     }
 
     func transition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S> {

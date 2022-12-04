@@ -155,6 +155,8 @@ class StateMachineTests: XCTestCase {
         expect(log) == ["aaaExit", "bbbEnter", "aaa -> bbb", "bbbExit", "cccEnter", "bbb -> ccc"]
     }
 
+    // MARK: - Preflight failures
+
     func testTransitionToSameStateGeneratesErrorAndDoesntCallClosures() async throws {
 
         var log: [String] = []

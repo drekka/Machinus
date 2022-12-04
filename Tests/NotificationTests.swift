@@ -9,12 +9,6 @@ import XCTest
 
 class NotificationTests: XCTestCase {
 
-    enum MyState: StateIdentifier {
-        case aaa
-        case bbb
-        case ccc
-    }
-
     private var stateA: StateConfig<MyState> = StateConfig(.aaa, canTransitionTo: .bbb)
     private var stateB: StateConfig<MyState> = StateConfig(.bbb)
     private var stateC: StateConfig<MyState> = StateConfig(.ccc) // Because machines must have 3 states.

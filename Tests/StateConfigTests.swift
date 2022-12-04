@@ -9,16 +9,10 @@ import XCTest
 
 class StateConfigTests: XCTestCase {
 
-    enum MyState: StateIdentifier {
-        case aaa
-        case bbb
-        case global
-        case final
-    }
-
     private var stateA: StateConfig<MyState> = StateConfig(.aaa, canTransitionTo: .bbb)
     private var stateAA: StateConfig<MyState> = StateConfig(.aaa)
     private var stateB: StateConfig<MyState> = StateConfig(.bbb)
+    private var stateC: StateConfig<MyState> = StateConfig(.ccc)
     private var global: StateConfig<MyState> = StateConfig.global(.global, canTransitionTo: .aaa)
     private var final: StateConfig<MyState> = StateConfig.final(.final)
 
@@ -63,10 +57,62 @@ class StateConfigTests: XCTestCase {
         expect(self.stateA != MyState.bbb) == true
     }
 
-    // MARK: - State properties
+    // MARK: - Pre-flight
 
-    func testCanTransition() {
-        expect(self.stateA.canTransition(toState: self.stateB)) == true
-        expect(self.stateAA.canTransition(toState: self.stateB)) == false
+    func testPreflightAllowsTransition() async {
+        let mockMachine = MockMachine(states: [stateA, stateB, stateC])
+        let result = await stateA.preflightTransition(toState: stateB, inMachine: mockMachine)
+        expect(result) == .allow
+    }
+
+    func testPreflightSameStateFails() async {
+        let mockMachine = MockMachine(states: [stateA, stateB, stateC])
+        let result = await stateA.preflightTransition(toState: stateA, inMachine: mockMachine)
+        expect(result) == .fail(error: .alreadyInState)
+    }
+
+    func testPreflightFinalStateExitFails() async {
+        let mockMachine = MockMachine(states: [final, stateB, stateC])
+        let result = await final.preflightTransition(toState: stateB, inMachine: mockMachine)
+        expect(result) == .fail(error: .illegalTransition)
+    }
+
+    func testPreflightBarrierAllows() async {
+        let barrierState = StateConfig<MyState>(.bbb, transitionBarrier: {
+            .allow
+        })
+        let mockMachine = MockMachine(states: [stateA, barrierState, stateC])
+        let result = await stateA.preflightTransition(toState: barrierState, inMachine: mockMachine)
+        expect(result) == .allow
+    }
+
+    func testPreflightBarrierFails() async {
+        let barrierState = StateConfig<MyState>(.bbb, transitionBarrier: {
+            .fail
+        })
+        let mockMachine = MockMachine(states: [stateA, barrierState, stateC])
+        let result = await stateA.preflightTransition(toState: barrierState, inMachine: mockMachine)
+        expect(result) == .fail(error: .transitionDenied)
+    }
+
+    func testPreflightBarrierRedirects() async {
+        let barrierState = StateConfig<MyState>(.bbb, transitionBarrier: {
+            .redirect(to: .ccc)
+        })
+        let mockMachine = MockMachine(states: [stateA, barrierState, stateC])
+        let result = await stateA.preflightTransition(toState: barrierState, inMachine: mockMachine)
+        expect(result) == .redirect(to: .ccc)
+    }
+
+    func testPreflightAllowTransitionFails() async {
+        let mockMachine = MockMachine(states: [stateA, stateB, stateC])
+        let result = await stateA.preflightTransition(toState: stateC, inMachine: mockMachine)
+        expect(result) == .fail(error: .illegalTransition)
+    }
+
+    func testPreflightAllowsGlobal() async {
+        let mockMachine = MockMachine(states: [stateA, global, stateC])
+        let result = await stateA.preflightTransition(toState: global, inMachine: mockMachine)
+        expect(result) == .allow
     }
 }
