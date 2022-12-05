@@ -5,21 +5,21 @@
 /// Defines an action to be executed against the state being transitioned to.
 /// - parameter machine: A reference to the state machine.
 /// - parameter previousState: The state being left.
-public typealias DidEnter<S> = (_ machine: StateMachine<S>, _ previousState: S) async -> Void where S: StateIdentifier
+public typealias DidEnter<S> = @Sendable (_ machine: StateMachine<S>, _ previousState: S) async -> Void where S: StateIdentifier
 
 /// Defines an action to be executed against the state being transitioned from.
 /// - parameter machine: A reference to the state machine.
 /// - parameter nextState: The new state of the machine.
-public typealias DidExit<S> = (_ machine: StateMachine<S>, _ nextState: S) async -> Void where S: StateIdentifier
+public typealias DidExit<S> = @Sendable (_ machine: StateMachine<S>, _ nextState: S) async -> Void where S: StateIdentifier
 
 /// Closure called to dynamically perform a transition.
-public typealias DynamicTransition<S> = () async -> S where S: StateIdentifier
+public typealias DynamicTransition<S> = @Sendable () async -> S where S: StateIdentifier
 
 /// Defines the closure that is executed before a transition to a state.
 ///
 /// This closure can deny the transition or even redirect to another state.
 /// If redirecting, the machine fails the current transition, then queues a transition to the redirect state.
-public typealias TransitionBarrier<S> = () async -> BarrierResponse<S> where S: StateIdentifier
+public typealias TransitionBarrier<S> = @Sendable () async -> BarrierResponse<S> where S: StateIdentifier
 
 /// Used to define config special features.
 struct Features: OptionSet {
@@ -32,7 +32,7 @@ struct Features: OptionSet {
 }
 
 /// Possible responses from a transition barrier.
-public enum BarrierResponse<S> where S: StateIdentifier {
+public enum BarrierResponse<S>: Sendable where S: StateIdentifier {
 
     /// Allow the transition to continue.
     case allow
@@ -49,7 +49,7 @@ public enum BarrierResponse<S> where S: StateIdentifier {
 /**
  Defines the setup of an individual state.
  */
-public class StateConfig<S> where S: StateIdentifier {
+public struct StateConfig<S>: Sendable where S: StateIdentifier {
 
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
     let identifier: S
@@ -72,7 +72,7 @@ public class StateConfig<S> where S: StateIdentifier {
      - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
-    public convenience init(_ identifier: S,
+    public init(_ identifier: S,
                             didEnter: DidEnter<S>? = nil,
                             didExit: DidExit<S>? = nil,
                             dynamicTransition: DynamicTransition<S>? = nil,

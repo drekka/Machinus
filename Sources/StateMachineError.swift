@@ -4,7 +4,7 @@
 //
 
 /// State machine errors.
-public enum StateMachineError: Error {
+public enum StateMachineError: Error, Sendable {
 
     /// Thrown when there is an error configuring the machine.
     case configurationError(String)
