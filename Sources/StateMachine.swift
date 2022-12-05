@@ -37,6 +37,7 @@ public actor StateMachine<S> where S: StateIdentifier {
     nonisolated var currentStateConfig: StateConfig<S> {
         currentStateSubject.value
     }
+
     public nonisolated var state: S {
         currentStateConfig.identifier
     }
@@ -90,25 +91,27 @@ public actor StateMachine<S> where S: StateIdentifier {
     /// initial state's `didEnter` closure. everything else is ignored. A ``reset(completion:)`` call does not clear any pending transitions as it
     /// is assumed to be part of the flow.
     public func reset(completion: ((Result<S, StateMachineError>) -> Void)? = nil) {
-        queue(transition: { machine in
-                  systemLog.trace("🤖 [\(machine.name)] Resetting to initial state")
-                  return await machine.transition(toState: machine.initialState, didExit: nil, didEnter: machine.initialState.didEnter)
-              },
-              completion: completion)
+        queue { machine in
+            systemLog.trace("🤖 [\(machine.name)] Resetting to initial state")
+            return await machine.completeTransition(toState: machine.initialState, didExit: nil, didEnter: machine.initialState.didEnter)
+        }
+        completion: { completion?($0.map(\.identifier)) }
     }
+
+    // MARK: - Hello
 
     /// Requests a dynamic transition where the dynamic transition closure of the current state is executed to obtain the next state of the machine.
     ///
     /// - parameter completion: A closure that will be executed when the transition is completed.
     public func transition(completion: ((Result<S, StateMachineError>) -> Void)? = nil) {
-        queue(transition: { machine in
-                  guard let dynamicClosure = machine.currentStateConfig.dynamicTransition else {
-                      throw StateMachineError.noDynamicClosure(machine.state)
-                  }
-                  systemLog.trace("🤖 [\(machine.name)] Running dynamic transition")
-                  return try await machine.transitionToState(await dynamicClosure())
-              },
-              completion: completion)
+        queue { machine in
+            guard let dynamicClosure = machine.currentStateConfig.dynamicTransition else {
+                throw StateMachineError.noDynamicClosure(machine.state)
+            }
+            systemLog.trace("🤖 [\(machine.name)] Running dynamic transition")
+            return try await machine.transition(toState: await dynamicClosure())
+        }
+        completion: { completion?($0.map(\.identifier)) }
     }
 
     /// Requests a transition to a specific state.
@@ -116,20 +119,21 @@ public actor StateMachine<S> where S: StateIdentifier {
     /// - parameter state: The state to transition to.
     /// - parameter completion: A closure that will be executed when the transition is completed.
     public func transition(to state: S, completion: ((Result<S, StateMachineError>) -> Void)? = nil) {
-        queue(transition: { machine in
-                  try await machine.transitionToState(state)
-              },
-              completion: completion)
+        queue { machine in
+            try await machine.transition(toState: state)
+        }
+        completion: { completion?($0.map(\.identifier)) }
     }
 
     // MARK: - Transition sequence
 
-    func queue(transition: @escaping (any Machine<S>) async throws -> StateConfig<S>, completion: ((Result<S, StateMachineError>) -> Void)?) {
+    func queue(transition: @escaping (any Machine<S>) async throws -> StateConfig<S>,
+               completion: ((Result<StateConfig<S>, StateMachineError>) -> Void)?) {
         transitionQueue.insert({ [weak self] in
                                    guard let self else { return }
                                    do {
                                        let priorState = try await transition(self)
-                                       completion?(.success(priorState.identifier))
+                                       completion?(.success(priorState))
                                    } catch let error as StateMachineError {
                                        completion?(.failure(error))
                                    } catch {
@@ -159,7 +163,7 @@ public actor StateMachine<S> where S: StateIdentifier {
         }
     }
 
-    func transitionToState(_ newState: S) async throws -> StateConfig<S> {
+    func transition(toState newState: S) async throws -> StateConfig<S> {
 
         let nextState = try stateConfigs.config(for: newState)
 
@@ -171,21 +175,23 @@ public actor StateMachine<S> where S: StateIdentifier {
 
         case .redirect(to: let redirectState):
             systemLog.trace("🤖 [\(self.name)] Preflight redirecting to: \(redirectState.loggingIdentifier)")
-            return try await transitionToState(redirectState)
+            return try await transition(toState: redirectState)
 
         case .allow:
-            systemLog.trace("🤖 [\(self.name)] Preflight passed, transitioning ...")
-            let previousState = state
-            let fromState = await transition(toState: nextState, didExit: currentStateConfig.didExit, didEnter: nextState.didEnter)
-
-            if postTransitionNotifications {
-                await NotificationCenter.default.postStateChange(machine: self, oldState: previousState)
-            }
-            return fromState
+            break
         }
+
+        systemLog.trace("🤖 [\(self.name)] Preflight passed, transitioning ...")
+        let previousState = state
+        let fromState = await completeTransition(toState: nextState, didExit: currentStateConfig.didExit, didEnter: nextState.didEnter)
+
+        if postTransitionNotifications {
+            await NotificationCenter.default.postStateChange(machine: self, oldState: previousState)
+        }
+        return fromState
     }
 
-    func transition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S> {
+    func completeTransition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S> {
 
         systemLog.trace("🤖 [\(self.name)] Transitioning to \(toState)")
 

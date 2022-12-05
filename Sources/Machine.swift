@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Provides internal access to the machine for various platforms.
+/// Provides the API for a machine so it can be accessed in closures and platforms.
 protocol Machine<S>: AnyActor {
 
     associatedtype S: StateIdentifier
@@ -18,9 +18,11 @@ protocol Machine<S>: AnyActor {
     nonisolated var currentStateConfig: StateConfig<S> { get }
     nonisolated var state: S { get }
 
-    func queue(transition: @escaping (any Machine<S>) async throws -> StateConfig<S>, completion: ((Result<S, StateMachineError>) -> Void)?) async
-    func transitionToState(_ newState: S) async throws -> StateConfig<S>
-    func transition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S>
+    func queue(transition: @escaping (any Machine<S>) async throws -> StateConfig<S>, completion: ((Result<StateConfig<S>, StateMachineError>) -> Void)?) async
+
+    func transition(toState newState: S) async throws -> StateConfig<S>
+
+    func completeTransition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S>
 }
 
 extension StateMachine: Machine {}

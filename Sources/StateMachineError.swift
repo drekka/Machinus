@@ -27,4 +27,7 @@ public enum StateMachineError: Error {
 
     /// Wraps an unexpected error.
     case unexpectedError(Error)
+
+    /// Thrown if the machine detects and internal issue it cannot resolve.
+    case integretyError(String)
 }

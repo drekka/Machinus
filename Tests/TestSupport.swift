@@ -65,15 +65,15 @@ actor MockMachine: Machine {
         currentStateConfig.identifier
     }
 
-    func queue(transition _: @escaping (any Machine<MyState>) async throws -> StateConfig<MyState>, completion _: ((Result<MyState, StateMachineError>) -> Void)?) async {}
+    func queue(transition _: @escaping (any Machine<MyState>) async throws -> StateConfig<MyState>, completion _: ((Result<StateConfig<MyState>, StateMachineError>) -> Void)?) async {}
 
     var transitionToStateResult: StateConfig<MyState>?
-    func transitionToState(_: MyState) async throws -> StateConfig<MyState> {
+    func transition(toState: MyState) async throws -> StateConfig<MyState> {
         transitionToStateResult!
     }
 
     var transitionResult: StateConfig<MyState>?
-    func transition(toState _: StateConfig<MyState>, didExit _: DidExit<MyState>?, didEnter _: DidEnter<MyState>?) async -> StateConfig<MyState> {
+    func completeTransition(toState _: StateConfig<MyState>, didExit _: DidExit<MyState>?, didEnter _: DidEnter<MyState>?) async -> StateConfig<MyState> {
         transitionResult!
     }
 

@@ -52,7 +52,12 @@
                                                                               queue: nil) { [weak self, weak machine] _ in
                 guard let self, let machine else { return }
                 Task {
-                    await self.setRestoreState(await machine.transition(toBackground: backgroundState))
+                    await machine.queue(transition: { machine in
+                                            let previousState = await machine.completeTransition(toState: backgroundState, didExit: nil, didEnter: backgroundState.didEnter)
+                                            await self.setRestoreState(previousState)
+                                            return previousState
+                                        },
+                                        completion: nil)
                 }
             }
 
@@ -61,8 +66,17 @@
                                                                               queue: nil) { [weak self, weak machine] _ in
                 guard let self, let machine else { return }
                 Task {
-                    await machine.restore(self.restoreState, from: backgroundState)
-                    await self.setRestoreState(nil)
+                    await machine.queue(transition: { machine in
+
+                                            guard let restoreState = await self.restoreState else {
+                                                throw StateMachineError.integretyError("Restoring from background but no state found to restore to.")
+                                            }
+
+                                            await machine.restore(restoreState, from: backgroundState)
+                                            await self.setRestoreState(nil)
+                                            return backgroundState
+                                        },
+                                        completion: nil)
                 }
             }
         }
@@ -70,13 +84,7 @@
 
     extension Machine {
 
-        func transition(toBackground backgroundState: StateConfig<S>) async -> StateConfig<S> {
-            await transition(toState: backgroundState, didExit: nil, didEnter: backgroundState.didEnter)
-        }
-
-        func restore(_ restoreState: StateConfig<S>?, from backgroundState: StateConfig<S>) async {
-
-            guard let restoreState else { return }
+        func restore(_ restoreState: StateConfig<S>, from backgroundState: StateConfig<S>) async {
 
             /// Allow for a transition barrier to fail or redirect.
             if let barrier = restoreState.transitionBarrier {
@@ -98,7 +106,7 @@
             }
 
             systemLog.trace("🤖 [\(self.name)] Transitioning to foreground, restoring state \(restoreState)")
-            _ = await transition(toState: restoreState, didExit: backgroundState.didExit, didEnter: nil)
+            _ = await completeTransition(toState: restoreState, didExit: backgroundState.didExit, didEnter: nil)
         }
     }
 
