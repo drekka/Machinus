@@ -6,10 +6,6 @@ import Combine
 import Foundation
 import os
 
-/// The completion closure for a single state change request.
-/// - parameter result: A result that either contains the previous state, or an error if the transition failed.
-public typealias TransitionCompleted<S> = (_ result: Result<S, StateMachineError<S>>) async -> Void where S: StateIdentifier
-
 /// A state machine closure called after each successful transition.
 /// - parameter machine: A reference to the state machine.
 /// - parameter previousState: The previous state of the machine.
