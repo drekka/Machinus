@@ -55,7 +55,7 @@ extension Notification {
     static func stateChange<S>(machine: StateMachine<S>, oldState: S) async -> Notification {
         return Notification(name: .stateChange, object: machine, userInfo: [
             StateChange.fromState.rawValue: oldState,
-            StateChange.toState.rawValue: machine.state,
+            StateChange.toState.rawValue: await machine.state,
         ])
     }
 

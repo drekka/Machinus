@@ -35,8 +35,8 @@ class AsyncSequenceTests: XCTestCase {
         var log: [State] = []
 
         Task {
-            await machine.transition(to: .second)
-            await machine.transition(to: .third)
+            try await machine.transition(to: .second)
+            try await machine.transition(to: .third)
         }
 
         for try await state in machine.stateSequence {

@@ -5,21 +5,23 @@
 /// Defines an action to be executed against the state being transitioned to.
 /// - parameter machine: A reference to the state machine.
 /// - parameter previousState: The state being left.
-public typealias DidEnter<S> = @Sendable (_ machine: StateMachine<S>, _ previousState: S) async -> Void where S: StateIdentifier
+public typealias DidEnter<S> = @Sendable (_ machine: any Machine<S>, _ previousState: S) async -> Void where S: StateIdentifier
 
 /// Defines an action to be executed against the state being transitioned from.
 /// - parameter machine: A reference to the state machine.
 /// - parameter nextState: The new state of the machine.
-public typealias DidExit<S> = @Sendable (_ machine: StateMachine<S>, _ nextState: S) async -> Void where S: StateIdentifier
+public typealias DidExit<S> = @Sendable (_ machine: any Machine<S>, _ nextState: S) async -> Void where S: StateIdentifier
 
 /// Closure called to dynamically perform a transition.
-public typealias DynamicTransition<S> = @Sendable () async -> S where S: StateIdentifier
+/// - parameter machine: A reference to the state machine.
+public typealias DynamicTransition<S> = @Sendable (_ machine: any Machine<S>) async -> S where S: StateIdentifier
 
 /// Defines the closure that is executed before a transition to a state.
 ///
 /// This closure can deny the transition or even redirect to another state.
 /// If redirecting, the machine fails the current transition, then queues a transition to the redirect state.
-public typealias TransitionBarrier<S> = @Sendable () async -> BarrierResponse<S> where S: StateIdentifier
+/// - parameter machine: A reference to the state machine.
+public typealias TransitionBarrier<S> = @Sendable (_ machine: any Machine<S>) async -> BarrierResponse<S> where S: StateIdentifier
 
 /// Used to define config special features.
 struct Features: OptionSet {
@@ -177,7 +179,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
     /// Possible results of the transition pre-flight.
     enum PreflightResponse<S> where S: StateIdentifier {
         case allow
-        case fail(error: StateMachineError)
+        case fail(error: StateMachineError<S>)
         case redirect(to: S)
     }
 
@@ -200,7 +202,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
         /// Process the registered transition barrier.
         if let barrier = toState.transitionBarrier {
             systemLog.trace("🤖 [\(machine.name)] Executing transition barrier")
-            switch await barrier() {
+            switch await barrier(machine) {
             case .allow: return .allow
             case .fail: return .fail(error: .transitionDenied)
             case .redirect(to: let redirectState): return .redirect(to: redirectState)

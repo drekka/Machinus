@@ -47,9 +47,9 @@ class NotificationTests: XCTestCase {
         }
 
         await machine.postNotifications(true)
-        await machine.transition(to: .bbb)
+        try await machine.transition(to: .bbb)
 
-        await expect(self.machine.state).toEventually(equal(.bbb))
+        await expect({ await self.machine.state}) == .bbb
 
         await expect(observedMachine).toEventuallyNot(beNil())
         expect(observedMachine) === machine

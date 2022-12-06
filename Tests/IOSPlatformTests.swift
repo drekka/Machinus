@@ -23,7 +23,7 @@ import XCTest
                     StateConfig<MyState>.background(.background) // Background state 1
                     StateConfig<MyState>.background(.ccc) // Background state 2
                 }
-            } catch StateMachineError.configurationError(let message) {
+            } catch StateMachineError<MyState>.configurationError(let message) {
                 expect(message) == "Multiple background states detected. Only one is allowed."
             }
         }
@@ -37,8 +37,8 @@ import XCTest
             }
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-            await expect(machine.state).toEventually(equal(.background))
 
+            expectMachine(machine, toEventuallyHaveState: .background)
             expect(self.log) == ["backgroundEnter"]
         }
 
@@ -52,11 +52,11 @@ import XCTest
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
 
-            await expect(machine.state).toEventually(equal(.background))
+            expectMachine(machine, toEventuallyHaveState: .background)
 
             await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
 
-            await expect(machine.state).toEventually(equal(.aaa))
+            expectMachine(machine, toEventuallyHaveState: .aaa)
 
             expect(self.log) == ["backgroundExit"]
         }
@@ -64,7 +64,7 @@ import XCTest
         func testMachineReturnsToForegroundThenRedirects() async throws {
 
             let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _, _ in self.log.append("aaaEnter") }, transitionBarrier: { .redirect(to: .bbb) }) // Should not be called
+                StateConfig<MyState>(.aaa, didEnter: { _, _ in self.log.append("aaaEnter") }, transitionBarrier: { _ in .redirect(to: .bbb) }) // Should not be called
                 StateConfig<MyState>(.bbb, didEnter: { _, _ in self.log.append("bbbEnter") }) // Also should not be called.
                 StateConfig<MyState>.background(.background, didExit: { _, _ in
                     self.log.append("backgroundExit")
@@ -73,10 +73,10 @@ import XCTest
             }
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-            await expect(machine.state).toEventually(equal(.background))
+            expectMachine(machine, toEventuallyHaveState: .background)
 
             await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
-            await expect(machine.state).toEventually(equal(.bbb))
+            expectMachine(machine, toEventuallyHaveState: .bbb)
 
             expect(self.log) == ["backgroundExit"]
         }

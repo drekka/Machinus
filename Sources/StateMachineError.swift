@@ -4,7 +4,7 @@
 //
 
 /// State machine errors.
-public enum StateMachineError: Error, Sendable {
+public enum StateMachineError<S>: Error, Sendable where S:StateIdentifier {
 
     /// Thrown when there is an error configuring the machine.
     case configurationError(String)
@@ -20,10 +20,10 @@ public enum StateMachineError: Error, Sendable {
     case illegalTransition
 
     /// Thrown when the requested state for a transition has not been registered with the engine.
-    case unknownState(any StateIdentifier)
+    case unknownState(S)
 
     /// Thrown when a dynamic transition is requested on a state with no dynamic transition closures.
-    case noDynamicClosure(any StateIdentifier)
+    case noDynamicClosure(S)
 
     /// Wraps an unexpected error.
     case unexpectedError(Error)

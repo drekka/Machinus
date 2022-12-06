@@ -4,7 +4,6 @@
 
 #if os(iOS) || os(tvOS)
 
-    import Combine
     import Foundation
     import os
     import UIKit
@@ -14,87 +13,75 @@
     actor IOSPlatform<S>: Platform where S: StateIdentifier {
 
         private var restoreState: StateConfig<S>?
-        private var backgroundObserver: Any?
-        private var foregroundObserver: Any?
+        private var backgroundNotificationWatcher: Task<Void, Error>?
+        private var foregroundNotificationWatcher: Task<Void, Error>?
 
         deinit {
-            if let backgroundObserver {
-                NotificationCenter.default.removeObserver(backgroundObserver)
-            }
-            if let foregroundObserver {
-                NotificationCenter.default.removeObserver(foregroundObserver)
-            }
+            backgroundNotificationWatcher?.cancel()
+            foregroundNotificationWatcher?.cancel()
         }
 
         /// Mutating from a non-isolated state (ie. from an external task) requires a async method to compile.
-        func setRestoreState(_ state: StateConfig<S>?) async {
+        private func setRestoreState(_ state: StateConfig<S>?) async {
             restoreState = state
         }
 
         init() {}
 
-        func configure(for machine: any Machine<S>) async throws {
+        func configure(machine: any Machine<S>, executor: isolated any TransitionExecutor<S>) async throws {
 
             // Set the background state.
-            let backgroundStates = machine.stateConfigs.values.filter { $0.features.contains(.background) }
+            let backgroundStates = executor.stateConfigs.values.filter { $0.features.contains(.background) }
             if backgroundStates.endIndex > 1 {
-                throw StateMachineError.configurationError("Multiple background states detected. Only one is allowed.")
+                throw StateMachineError<S>.configurationError("Multiple background states detected. Only one is allowed.")
             }
             guard let backgroundState = backgroundStates.first else {
                 // No background state so nothing to observe.
                 return
             }
 
-            systemLog.trace("🤖 [\(machine.name)] Watching application background notification")
-
-            backgroundObserver = await NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification,
-                                                                              object: nil,
-                                                                              queue: nil) { [weak self, weak machine] _ in
-                guard let self, let machine else { return }
-                Task {
-                    await machine.queue(transition: { machine in
-                                            let previousState = await machine.completeTransition(toState: backgroundState, didExit: nil, didEnter: backgroundState.didEnter)
-                                            await self.setRestoreState(previousState)
-                                            return previousState
-                                        },
-                                        completion: nil)
+            systemLog.trace("🤖 [\(executor.name)] Watching for application background notification")
+            backgroundNotificationWatcher = Task.detached {
+                for await _ in NotificationCenter.default.notifications(named: await UIApplication.didEnterBackgroundNotification) {
+                    try await executor.execute {
+                        let previousState = await executor.completeTransition(toState: backgroundState, didExit: nil, didEnter: backgroundState.didEnter)
+                        await self.setRestoreState(previousState)
+                        return previousState
+                    }
                 }
             }
 
-            foregroundObserver = await NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification,
-                                                                              object: nil,
-                                                                              queue: nil) { [weak self, weak machine] _ in
-                guard let self, let machine else { return }
-                Task {
-                    await machine.queue(transition: { machine in
+            foregroundNotificationWatcher = Task.detached {
+                for await _ in NotificationCenter.default.notifications(named: await UIApplication.willEnterForegroundNotification) {
+                    try await executor.execute {
 
-                                            guard let restoreState = await self.restoreState else {
-                                                throw StateMachineError.integretyError("Restoring from background but no state found to restore to.")
-                                            }
+                        guard let toState = await self.restoreState else {
+                            throw StateMachineError<S>.integretyError("Restoring from background but no state found to restore to.")
+                        }
 
-                                            await machine.restore(restoreState, from: backgroundState)
-                                            await self.setRestoreState(nil)
-                                            return backgroundState
-                                        },
-                                        completion: nil)
+                        await executor.restore(machine: machine, state: toState, from: backgroundState)
+                        await self.setRestoreState(nil)
+                        return backgroundState
+                    }
                 }
             }
         }
     }
 
-    extension Machine {
+    extension TransitionExecutor {
 
-        func restore(_ restoreState: StateConfig<S>, from backgroundState: StateConfig<S>) async {
+        /// Recursive restore that allows for a redirect from the restore state barrier.
+        func restore(machine: any Machine<S>, state: StateConfig<S>, from backgroundState: StateConfig<S>) async {
 
             /// Allow for a transition barrier to fail or redirect.
-            if let barrier = restoreState.transitionBarrier {
+            if let barrier = state.transitionBarrier {
 
-                switch await barrier() {
+                switch await barrier(machine) {
 
                 case .redirect(to: let redirect):
                     guard let redirectState = try? stateConfigs.config(for: redirect) else { return }
-                    systemLog.trace("🤖 [\(self.name)] Transition barrier for \(restoreState) redirecting to \(redirectState))")
-                    await restore(redirectState, from: backgroundState)
+                    systemLog.trace("🤖 [\(self.name)] Transition barrier for \(redirectState) redirecting to \(redirectState))")
+                    await restore(machine: machine, state: redirectState, from: backgroundState)
                     return
 
                 case .fail:
@@ -105,8 +92,8 @@
                 }
             }
 
-            systemLog.trace("🤖 [\(self.name)] Transitioning to foreground, restoring state \(restoreState)")
-            _ = await completeTransition(toState: restoreState, didExit: backgroundState.didExit, didEnter: nil)
+            systemLog.trace("🤖 [\(self.name)] Transitioning to foreground, restoring state \(state)")
+            _ = await completeTransition(toState: state, didExit: backgroundState.didExit, didEnter: nil)
         }
     }
 

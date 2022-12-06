@@ -2,27 +2,42 @@
 //  File.swift
 //
 //
-//  Created by Derek Clarkson on 3/12/2022.
+//  Created by Derek Clarkson on 5/12/2022.
 //
 
 import Foundation
+import Combine
 
-/// Provides the API for a machine so it can be accessed in closures and platforms.
-protocol Machine<S>: AnyActor {
-
+// Public interface to a state machine.
+public protocol Machine<S>: AnyActor {
     associatedtype S: StateIdentifier
 
+    /// The machines name.
+    ///
+    /// Only used for errors and logging so that we can identify the machine in a multimachine setup.
     nonisolated var name: String { get }
-    nonisolated var stateConfigs: [S: StateConfig<S>] { get }
-    nonisolated var initialState: StateConfig<S> { get }
-    nonisolated var currentStateConfig: StateConfig<S> { get }
-    nonisolated var state: S { get }
 
-    func queue(transition: @escaping (any Machine<S>) async throws -> StateConfig<S>, completion: ((Result<StateConfig<S>, StateMachineError>) -> Void)?) async
+    /// The current state of the machine.
+    var state: S { get async }
 
-    func transition(toState newState: S) async throws -> StateConfig<S>
+    /// Resets the state machine to it's initial state which will be the first state the machine was initialised with.
+    ///
+    /// Note that this is a "hard" reset that ignores `didExit` closures, allow lists and transition barriers. The only code called is the
+    /// initial state's `didEnter` closure. everything else is ignored. A ``reset(completion:)`` call does not clear any pending transitions as it
+    /// is assumed to be part of the flow.
+    @discardableResult
+    func reset() async throws -> S
 
-    func completeTransition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S>
+    /// Requests a dynamic transition where the dynamic transition closure of the current state is executed to obtain the next state of the machine.
+    ///
+    /// - parameter completion: A closure that will be executed when the transition is completed.
+    @discardableResult
+    func transition() async throws -> S
+
+    /// Requests a transition to a specific state.
+    ///
+    /// - parameter state: The state to transition to.
+    /// - parameter completion: A closure that will be executed when the transition is completed.
+    @discardableResult
+    func transition(to state: S) async throws -> S
 }
-
-extension StateMachine: Machine {}

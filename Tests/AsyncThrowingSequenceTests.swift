@@ -17,7 +17,7 @@ import XCTest
 // values are not sent too fast or the tests won't work.
 class AsyncThrowingSequenceTests: XCTestCase {
 
-    var publisher: CurrentValueSubject<Int, StateMachineError>!
+    var publisher: CurrentValueSubject<Int, StateMachineError<MyState>>!
     var log: [Int]!
     var x: Int!
 
@@ -71,7 +71,7 @@ class AsyncThrowingSequenceTests: XCTestCase {
             }
             fail("Error not thrown")
         }
-        catch StateMachineError.alreadyInState {
+        catch StateMachineError<MyState>.alreadyInState {
             expect(self.log) == [0, 1, 2, 3, 4]
         }
         catch {
@@ -79,7 +79,7 @@ class AsyncThrowingSequenceTests: XCTestCase {
         }
     }
 
-    func sendNext(then: Subscribers.Completion<StateMachineError> = .finished) {
+    func sendNext(then: Subscribers.Completion<StateMachineError<MyState>> = .finished) {
         Task {
             x += 1
             if x == 5 {

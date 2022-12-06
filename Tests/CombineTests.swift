@@ -53,28 +53,28 @@ class CombineTests: XCTestCase {
         super.tearDown()
     }
 
-    func testReceivingUpdatesWhenStateChanges() async {
+    func testReceivingUpdatesWhenStateChanges() async throws {
         await expect(self.state).toEventually(equal(.first))
-        await machine.transition(to: .second)
+        try await machine.transition(to: .second)
         await expect(self.state).toEventually(equal(.second))
-        await machine.transition(to: .third)
+        try await machine.transition(to: .third)
         await expect(self.state).toEventually(equal(.third))
     }
 
-    func testCancellingTheSubscriptionStopsUpdates() async {
+    func testCancellingTheSubscriptionStopsUpdates() async throws {
 
         await expect(self.state).toEventually(equal(.first))
-        await machine.transition(to: .second)
+        try await machine.transition(to: .second)
         await expect(self.state).toEventually(equal(.second))
 
         cancellables?.forEach { $0.cancel() }
         cancellables = nil
 
-        await machine.transition(to: .third)
+        try await machine.transition(to: .third)
         await expect(self.state).toNever(equal(.third))
     }
 
-    func testMultipleSubscribers() async {
+    func testMultipleSubscribers() async throws {
 
         var state1: State?
         var state2: State?
@@ -101,13 +101,13 @@ class CombineTests: XCTestCase {
         await expect(state1).toEventually(equal(.first))
         await expect(state2).toEventually(equal(.first))
 
-        await machine.transition(to: .second)
+        try await machine.transition(to: .second)
         await expect(state1).toEventually(equal(.second))
         await expect(state2).toEventually(equal(.second))
 
         cancellables[1].cancel()
 
-        await machine.transition(to: .third)
+        try await machine.transition(to: .third)
         await expect(state1).toEventually(equal(.third))
         await expect(state2).toNever(equal(.third))
     }

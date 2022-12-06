@@ -17,6 +17,14 @@ enum MyState: StateIdentifier {
     case global
 }
 
+/// Used to log hooks and events in tests.
+actor Log {
+    var entries: [String] = []
+    func append(_ value: String) {
+        entries.append(value)
+    }
+}
+
 extension StateMachineError: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
@@ -51,25 +59,64 @@ extension StateConfig<MyState>.PreflightResponse<MyState>: Equatable {
     }
 }
 
+extension XCTestCase {
+
+    func expectMachine<S>(file _: StaticString = #file, line _: UInt = #line, _ machine: StateMachine<S>, toEventuallyHaveState desiredState: S) where S: StateIdentifier {
+
+        let exp = expectation(description: "State wait")
+
+        let c = machine.statePublisher.sink { _ in } receiveValue: { state in
+            if state == desiredState {
+                exp.fulfill()
+            }
+        }
+
+        withExtendedLifetime(c) {
+            wait(for: [exp], timeout: 5.0)
+        }
+    }
+}
+
 actor MockMachine: Machine {
 
     let name = "Mock Machine"
+    var state: MyState
+
+    init() {
+        self.state = .aaa
+    }
+
+    func reset() async throws -> MyState {
+        state
+    }
+
+    func transition() async throws -> MyState {
+        state
+    }
+
+    func transition(to state: MyState) async throws -> MyState {
+        state
+    }
+}
+
+actor MockExecutor: TransitionExecutor {
+
+    let name = "Mock Executor"
     let stateConfigs: [MyState: StateConfig<MyState>]
     let initialState: StateConfig<MyState>
-    let currentState: CurrentValueSubject<StateConfig<MyState>, StateMachineError>
+    let currentState: CurrentValueSubject<StateConfig<MyState>, StateMachineError<MyState>>
 
     nonisolated var currentStateConfig: StateConfig<MyState> {
         currentState.value
     }
+
     nonisolated var state: MyState {
         currentStateConfig.identifier
     }
 
-    func queue(transition _: @escaping (any Machine<MyState>) async throws -> StateConfig<MyState>, completion _: ((Result<StateConfig<MyState>, StateMachineError>) -> Void)?) async {}
-
-    var transitionToStateResult: StateConfig<MyState>?
-    func transition(toState: MyState) async throws -> StateConfig<MyState> {
-        transitionToStateResult!
+    var executeResult: StateConfig<MyState>?
+    func execute(transition _: @escaping () async throws -> StateConfig<MyState>) async throws -> StateConfig<MyState> {
+        executeResult!
     }
 
     var transitionResult: StateConfig<MyState>?
