@@ -120,7 +120,7 @@ actor MockExecutor: TransitionExecutor {
     }
 
     var transitionResult: StateConfig<MyState>?
-    func completeTransition(toState _: StateConfig<MyState>, didExit _: DidExit<MyState>?, didEnter _: DidEnter<MyState>?) async -> StateConfig<MyState> {
+    func completeTransition(toState _: StateConfig<MyState>, didExit _: DidExitState<MyState>?, didEnter _: DidEnterState<MyState>?) async -> StateConfig<MyState> {
         transitionResult!
     }
 

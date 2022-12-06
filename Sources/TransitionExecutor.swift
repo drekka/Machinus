@@ -20,7 +20,7 @@ protocol TransitionExecutor<S>: AnyActor {
     func execute(transition: @escaping () async throws -> StateConfig<S>) async throws -> StateConfig<S>
 
     /// Call within the ``execute(...)`` transition closure to perform the transition, passing the relevant closures to call.
-    func completeTransition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S>
+    func completeTransition(toState: StateConfig<S>, didExit: DidExitState<S>?, didEnter: DidEnterState<S>?) async -> StateConfig<S>
 }
 
 extension StateMachine: TransitionExecutor {}

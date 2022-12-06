@@ -6,11 +6,6 @@ import Combine
 import Foundation
 import os
 
-/// A state machine closure called after each successful transition.
-/// - parameter machine: A reference to the state machine.
-/// - parameter previousState: The previous state of the machine.
-public typealias MachineDidTransition<S> = (_ machine: any Machine<S>, _ previousState: S) async -> Void where S: StateIdentifier
-
 /// Defines a result builder that can be used on the state machines init.
 @resultBuilder
 public struct StateConfigBuilder<S> where S: StateIdentifier {
@@ -155,7 +150,7 @@ public actor StateMachine<S>: Machine where S: StateIdentifier {
         return fromState
     }
 
-    func completeTransition(toState: StateConfig<S>, didExit: DidExit<S>?, didEnter: DidEnter<S>?) async -> StateConfig<S> {
+    func completeTransition(toState: StateConfig<S>, didExit: DidExitState<S>?, didEnter: DidEnterState<S>?) async -> StateConfig<S> {
 
         systemLog.trace("🤖 [\(self.name)] Transitioning to \(toState)")
 

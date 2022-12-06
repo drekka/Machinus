@@ -2,27 +2,6 @@
 //  Created by Derek Clarkson on 11/2/19.
 //
 
-/// Defines an action to be executed against the state being transitioned to.
-/// - parameter machine: A reference to the state machine.
-/// - parameter previousState: The state being left.
-public typealias DidEnter<S> = @Sendable (_ machine: any Machine<S>, _ previousState: S) async -> Void where S: StateIdentifier
-
-/// Defines an action to be executed against the state being transitioned from.
-/// - parameter machine: A reference to the state machine.
-/// - parameter nextState: The new state of the machine.
-public typealias DidExit<S> = @Sendable (_ machine: any Machine<S>, _ nextState: S) async -> Void where S: StateIdentifier
-
-/// Closure called to dynamically perform a transition.
-/// - parameter machine: A reference to the state machine.
-public typealias DynamicTransition<S> = @Sendable (_ machine: any Machine<S>) async -> S where S: StateIdentifier
-
-/// Defines the closure that is executed before a transition to a state.
-///
-/// This closure can deny the transition or even redirect to another state.
-/// If redirecting, the machine fails the current transition, then queues a transition to the redirect state.
-/// - parameter machine: A reference to the state machine.
-public typealias TransitionBarrier<S> = @Sendable (_ machine: any Machine<S>) async -> BarrierResponse<S> where S: StateIdentifier
-
 /// Used to define config special features.
 struct Features: OptionSet {
     let rawValue: Int
@@ -56,8 +35,8 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
     let identifier: S
     let features: Features
-    let didExit: DidExit<S>?
-    let didEnter: DidEnter<S>?
+    let didExit: DidExitState<S>?
+    let didEnter: DidEnterState<S>?
     let dynamicTransition: DynamicTransition<S>?
     let transitionBarrier: TransitionBarrier<S>?
     private let allowedTransitions: [S]
@@ -75,8 +54,8 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
     public init(_ identifier: S,
-                            didEnter: DidEnter<S>? = nil,
-                            didExit: DidExit<S>? = nil,
+                            didEnter: DidEnterState<S>? = nil,
+                            didExit: DidExitState<S>? = nil,
                             dynamicTransition: DynamicTransition<S>? = nil,
                             transitionBarrier: TransitionBarrier<S>? = nil,
                             canTransitionTo: S...) {
@@ -92,8 +71,8 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
     // Master initialiser
     init(_ identifier: S,
          features: Features,
-         didEnter: DidEnter<S>? = nil,
-         didExit: DidExit<S>? = nil,
+         didEnter: DidEnterState<S>? = nil,
+         didExit: DidExitState<S>? = nil,
          dynamicTransition: DynamicTransition<S>? = nil,
          transitionBarrier: TransitionBarrier<S>? = nil,
          canTransitionTo: [S] = []) {
@@ -117,8 +96,8 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
          - parameter didExit: A closure that is executed after exiting this state.
          */
         public static func background(_ identifier: S,
-                                      didEnter: DidEnter<S>? = nil,
-                                      didExit: DidExit<S>? = nil) -> StateConfig<S> {
+                                      didEnter: DidEnterState<S>? = nil,
+                                      didExit: DidExitState<S>? = nil) -> StateConfig<S> {
             StateConfig(identifier, features: .background, didEnter: didEnter, didExit: didExit)
         }
     #endif
@@ -134,8 +113,8 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
     public static func global(_ identifier: S,
-                              didEnter: DidEnter<S>? = nil,
-                              didExit: DidExit<S>? = nil,
+                              didEnter: DidEnterState<S>? = nil,
+                              didExit: DidExitState<S>? = nil,
                               dynamicTransition: DynamicTransition<S>? = nil,
                               transitionBarrier: TransitionBarrier<S>? = nil,
                               canTransitionTo: S...) -> StateConfig<S> {
@@ -156,7 +135,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
      - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      */
     public static func final(_ identifier: S,
-                             didEnter: DidEnter<S>? = nil,
+                             didEnter: DidEnterState<S>? = nil,
                              transitionBarrier: TransitionBarrier<S>? = nil) -> StateConfig<S> {
         StateConfig(identifier, features: .final, didEnter: didEnter, transitionBarrier: transitionBarrier)
     }
@@ -169,7 +148,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
      - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      */
     public static func finalGlobal(_ identifier: S,
-                                   didEnter: DidEnter<S>? = nil,
+                                   didEnter: DidEnterState<S>? = nil,
                                    transitionBarrier: TransitionBarrier<S>? = nil) -> StateConfig<S> {
         StateConfig(identifier, features: [.global, .final], didEnter: didEnter, transitionBarrier: transitionBarrier)
     }
