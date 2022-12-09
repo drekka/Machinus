@@ -40,7 +40,6 @@ class NotificationTests: XCTestCase {
         var fromState: TestState?
         var toState: TestState?
         observer = NotificationCenter.default.addStateChangeObserver { (sm: StateMachine<TestState>, from: TestState, to: TestState) in
-            print("State changed")
             observedMachine = sm
             fromState = from
             toState = to

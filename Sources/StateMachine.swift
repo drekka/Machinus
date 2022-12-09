@@ -42,10 +42,6 @@ public actor StateMachine<S>: Machine where S: StateIdentifier {
 
     // MARK: - Lifecycle
 
-    deinit {
-        print("DEINITING !!!!")
-    }
-
     /// Convenience initialiser which uses a result builder.
     ///
     /// - parameters:

@@ -153,7 +153,6 @@ extension XCTestCase {
                  message: String = "Expression failed",
                  _ assertion: @autoclosure () async -> Bool) async {
         for _ in 1 ... (seconds * 1000 / poll) where !(await assertion()) {
-            print("polling")
             try? await Task.sleep(for: .milliseconds(poll))
         }
         if !(await assertion()) {

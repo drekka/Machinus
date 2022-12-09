@@ -30,7 +30,6 @@ import XCTest
                 StateConfig<TestState>(.aaa, didExit: { _, _, _ in await aaaDidExit.set() }) // Should not be called.
                 StateConfig<TestState>(.bbb)
                 StateConfig<TestState>.background(.background, didEnter: { _, _, _ in
-                    print("Setting")
                     await machineBackgrounded.set()
                 })
             }
