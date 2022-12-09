@@ -9,11 +9,11 @@ import XCTest
 
 class NotificationTests: XCTestCase {
 
-    private var stateA: StateConfig<MyState> = StateConfig(.aaa, canTransitionTo: .bbb)
-    private var stateB: StateConfig<MyState> = StateConfig(.bbb)
-    private var stateC: StateConfig<MyState> = StateConfig(.ccc) // Because machines must have 3 states.
+    private var stateA: StateConfig<TestState> = StateConfig(.aaa, canTransitionTo: .bbb)
+    private var stateB: StateConfig<TestState> = StateConfig(.bbb)
+    private var stateC: StateConfig<TestState> = StateConfig(.ccc) // Because machines must have 3 states.
 
-    private var machine: StateMachine<MyState>!
+    private var machine: StateMachine<TestState>!
     private var observer: Any?
 
     override func tearDown() {
@@ -36,10 +36,10 @@ class NotificationTests: XCTestCase {
 
     func testWatchingStateChanges() async throws {
 
-        var observedMachine: StateMachine<MyState>?
-        var fromState: MyState?
-        var toState: MyState?
-        observer = NotificationCenter.default.addStateChangeObserver { (sm: StateMachine<MyState>, from: MyState, to: MyState) in
+        var observedMachine: StateMachine<TestState>?
+        var fromState: TestState?
+        var toState: TestState?
+        observer = NotificationCenter.default.addStateChangeObserver { (sm: StateMachine<TestState>, from: TestState, to: TestState) in
             print("State changed")
             observedMachine = sm
             fromState = from
@@ -47,11 +47,10 @@ class NotificationTests: XCTestCase {
         }
 
         await machine.postNotifications(true)
-        try await machine.transition(to: .bbb)
-
-        await expect({ await self.machine.state}) == .bbb
+        await machine.transition(to: .bbb)
 
         await expect(observedMachine).toEventuallyNot(beNil())
+
         expect(observedMachine) === machine
         expect(fromState) == .aaa
         expect(toState) == .bbb

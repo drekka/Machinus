@@ -7,14 +7,10 @@ import Foundation
 import Nimble
 import XCTest
 
-enum TestState: StateIdentifier {
-    case xyz
-}
-
 class StateIdentifierTests: XCTestCase {
 
-    func testDescription() {
-        expect("\(TestState.xyz)") == "xyz"
-        expect(TestState.xyz.loggingIdentifier) == ".xyz"
-    }
+//    func testDescription() {
+//        expect("\(TestState.aaa)") == "aaa"
+//        expect(TestState.aaa.loggingIdentifier) == ".aaa"
+//    }
 }

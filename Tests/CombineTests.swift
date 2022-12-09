@@ -10,29 +10,19 @@ import XCTest
 
 class CombineTests: XCTestCase {
 
-    private enum State: String, StateIdentifier {
-        case first
-        case second
-        case third
-    }
-
-    private var machine: StateMachine<State>!
-    private var state: State?
+    private var machine: StateMachine<TestState>!
+    private var states: [TestState]!
     private var cancellables: [AnyCancellable]!
 
     override func setUp() async throws {
 
         cancellables = []
-        state = nil
-
-        let state1 = StateConfig<State>(.first, canTransitionTo: .second)
-        let state2 = StateConfig<State>(.second, canTransitionTo: .third)
-        let state3 = StateConfig<State>(.third, canTransitionTo: .first)
+        states = []
 
         machine = try await StateMachine {
-            state1
-            state2
-            state3
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb, canTransitionTo: .ccc)
+            StateConfig<TestState>(.ccc, canTransitionTo: .aaa)
         }
 
         cancellables.append(
@@ -41,9 +31,7 @@ class CombineTests: XCTestCase {
                     fail("Unexpected error \(error)")
                 }
             }
-            receiveValue: { newState in
-                print("Received " + String(describing: newState))
-                self.state = newState
+            receiveValue: { self.states.append($0)
             }
         )
     }
@@ -54,30 +42,28 @@ class CombineTests: XCTestCase {
     }
 
     func testReceivingUpdatesWhenStateChanges() async throws {
-        await expect(self.state).toEventually(equal(.first))
-        try await machine.transition(to: .second)
-        await expect(self.state).toEventually(equal(.second))
-        try await machine.transition(to: .third)
-        await expect(self.state).toEventually(equal(.third))
+        await machine.testTransition(to: .bbb)
+        expect(self.states) == [.aaa, .bbb]
+        await machine.testTransition(to: .ccc)
+        expect(self.states) == [.aaa, .bbb, .ccc]
     }
 
     func testCancellingTheSubscriptionStopsUpdates() async throws {
 
-        await expect(self.state).toEventually(equal(.first))
-        try await machine.transition(to: .second)
-        await expect(self.state).toEventually(equal(.second))
+        await machine.testTransition(to: .bbb)
+        expect(self.states) == [.aaa, .bbb]
 
         cancellables?.forEach { $0.cancel() }
         cancellables = nil
 
-        try await machine.transition(to: .third)
-        await expect(self.state).toNever(equal(.third))
+        await machine.testTransition(to: .ccc)
+        expect(self.states) == [.aaa, .bbb]
     }
 
     func testMultipleSubscribers() async throws {
 
-        var state1: State?
-        var state2: State?
+        var states1: [TestState] = []
+        var states2: [TestState] = []
 
         cancellables = [
             machine.statePublisher.sink { result in
@@ -85,30 +71,23 @@ class CombineTests: XCTestCase {
                     fail("Unexpected error \(error)")
                 }
             }
-            receiveValue: { newState in
-                state1 = newState
-            },
+            receiveValue: { states1.append($0) },
             machine.statePublisher.sink { result in
                 if case .failure(let error) = result {
                     fail("Unexpected error \(error)")
                 }
             }
-            receiveValue: { newState in
-                state2 = newState
-            },
+            receiveValue: { states2.append($0) },
         ]
 
-        await expect(state1).toEventually(equal(.first))
-        await expect(state2).toEventually(equal(.first))
-
-        try await machine.transition(to: .second)
-        await expect(state1).toEventually(equal(.second))
-        await expect(state2).toEventually(equal(.second))
+        await machine.testTransition(to: .bbb)
+        expect(states1) == [.aaa, .bbb]
+        expect(states2) == [.aaa, .bbb]
 
         cancellables[1].cancel()
 
-        try await machine.transition(to: .third)
-        await expect(state1).toEventually(equal(.third))
-        await expect(state2).toNever(equal(.third))
+        await machine.testTransition(to: .ccc)
+        expect(states1) == [.aaa, .bbb, .ccc]
+        expect(states2) == [.aaa, .bbb]
     }
 }

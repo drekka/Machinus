@@ -10,75 +10,102 @@ import XCTest
 #if os(iOS) || os(tvOS)
     class IOSPlatformTests: XCTestCase {
 
-        private var log: [String]!
-        override func setUp() {
-            super.setUp()
-            log = []
-        }
-
         func testInitWithMultipleBackgroundStatesFails() async throws {
             do {
                 _ = try await StateMachine {
-                    StateConfig<MyState>(.aaa)
-                    StateConfig<MyState>.background(.background) // Background state 1
-                    StateConfig<MyState>.background(.ccc) // Background state 2
+                    StateConfig<TestState>(.aaa)
+                    StateConfig<TestState>.background(.background) // Background state 1
+                    StateConfig<TestState>.background(.ccc) // Background state 2
                 }
-            } catch StateMachineError<MyState>.configurationError(let message) {
+            } catch StateMachineError<TestState>.configurationError(let message) {
                 expect(message) == "Multiple background states detected. Only one is allowed."
             }
         }
 
-        func testMachineGoesIntoBackground() async throws {
+        func testMachineGoesIntoBackgroundExp() async throws {
 
+            let aaaDidExit = WaitFlagActor()
+            let machineBackgrounded = WaitFlagActor()
             let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didExit: { _, _ in self.log.append("aaaExit") }) // Should not be called.
-                StateConfig<MyState>(.bbb)
-                StateConfig<MyState>.background(.background, didEnter: { _, _ in self.log.append("backgroundEnter") })
-            }
-
-            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-
-            expectMachine(machine, toEventuallyHaveState: .background)
-            expect(self.log) == ["backgroundEnter"]
-        }
-
-        func testMachineReturnsToForeground() async throws {
-
-            let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _, _ in self.log.append("aaaEnter") }) // Should not be called
-                StateConfig<MyState>(.bbb)
-                StateConfig<MyState>.background(.background, didExit: { _, _ in self.log.append("backgroundExit") })
-            }
-
-            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-
-            expectMachine(machine, toEventuallyHaveState: .background)
-
-            await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
-
-            expectMachine(machine, toEventuallyHaveState: .aaa)
-
-            expect(self.log) == ["backgroundExit"]
-        }
-
-        func testMachineReturnsToForegroundThenRedirects() async throws {
-
-            let machine = try await StateMachine {
-                StateConfig<MyState>(.aaa, didEnter: { _, _ in self.log.append("aaaEnter") }, transitionBarrier: { _ in .redirect(to: .bbb) }) // Should not be called
-                StateConfig<MyState>(.bbb, didEnter: { _, _ in self.log.append("bbbEnter") }) // Also should not be called.
-                StateConfig<MyState>.background(.background, didExit: { _, _ in
-                    self.log.append("backgroundExit")
-                    
+                StateConfig<TestState>(.aaa, didExit: { _, _, _ in await aaaDidExit.set() }) // Should not be called.
+                StateConfig<TestState>(.bbb)
+                StateConfig<TestState>.background(.background, didEnter: { _, _, _ in
+                    print("Setting")
+                    await machineBackgrounded.set()
                 })
             }
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-            expectMachine(machine, toEventuallyHaveState: .background)
+
+            await waitFor(await machine.state == .background)
+            await expect({ await aaaDidExit.flag }) == false
+        }
+
+        func testMachineGoesIntoBackground() async throws {
+
+            let aaaDidExit = WaitFlagActor()
+            let machineBackgrounded = WaitFlagActor()
+            let machine = try await StateMachine {
+                StateConfig<TestState>(.aaa, didExit: { _, _, _ in await aaaDidExit.set() }) // Should not be called.
+                StateConfig<TestState>(.bbb)
+                StateConfig<TestState>.background(.background, didEnter: { _, _, _ in await machineBackgrounded.set() })
+            }
+
+            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+
+            await waitFor(await machine.state == .background)
+            await expect({ await aaaDidExit.flag }) == false
+        }
+
+        func testMachineReturnsToForeground() async throws {
+
+            let aaaDidEnter = WaitFlagActor()
+            let machineBackgrounded = WaitFlagActor()
+            let machineForegrounded = WaitFlagActor()
+            let machine = try await StateMachine(name: "Test machine") {
+                StateConfig<TestState>(.aaa, didEnter: { _, _, _ in await aaaDidEnter.set() }) // Should not be called
+                StateConfig<TestState>(.bbb)
+                StateConfig<TestState>.background(.background,
+                                                  didEnter: { _, _, _ in await machineBackgrounded.set() },
+                                                  didExit: { _, _, _ in await machineForegrounded.set() })
+            }
+
+            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+
+            await waitFor(await machine.state == .background)
 
             await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
-            expectMachine(machine, toEventuallyHaveState: .bbb)
 
-            expect(self.log) == ["backgroundExit"]
+            await waitFor(await machine.state == .aaa)
+            await expect({ await aaaDidEnter.flag }) == false
+        }
+
+        func testMachineReturnsToForegroundThenRedirects() async throws {
+
+            let aaaDidEnter = WaitFlagActor()
+            let bbbDidEnter = WaitFlagActor()
+            let machineBackgrounded = WaitFlagActor()
+            let machineForegrounded = WaitFlagActor()
+            let machine = try await StateMachine {
+                StateConfig<TestState>(.aaa,
+                                       didEnter: { _, _, _ in await aaaDidEnter.set() },
+                                       transitionBarrier: { _ in .redirect(to: .bbb) }) // Should not be called
+                StateConfig<TestState>(.bbb,
+                                       didEnter: { _, _, _ in await bbbDidEnter.set() }) // Also should not be called.
+                StateConfig<TestState>.background(.background,
+                                                  didEnter: { _, _, _ in await machineBackgrounded.set() },
+                                                  didExit: { _, _, _ in await machineForegrounded.set() })
+            }
+
+            await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
+
+            await waitFor(await machine.state == .background)
+
+            await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
+
+            await waitFor(await machine.state == .bbb)
+            await expect({ await aaaDidEnter.flag }) == false
+            await expect({ await bbbDidEnter.flag }) == false
         }
     }
 #endif

@@ -29,5 +29,5 @@ public enum StateMachineError<S>: Error, Sendable where S:StateIdentifier {
     case unexpectedError(Error)
 
     /// Thrown if the machine detects and internal issue it cannot resolve.
-    case integretyError(String)
+    case integrityError(String)
 }

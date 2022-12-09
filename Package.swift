@@ -6,8 +6,8 @@ let package = Package(
     name: "Machinus",
     platforms: [
         .macOS(.v12),
-        .iOS(.v15),
-        .tvOS(.v15),
+        .iOS(.v16),
+        .tvOS(.v16),
     ],
     products: [
         .library(name: "Machinus", targets: ["Machinus"]),

@@ -17,7 +17,7 @@ import XCTest
 // values are not sent too fast or the tests won't work.
 class AsyncThrowingSequenceTests: XCTestCase {
 
-    var publisher: CurrentValueSubject<Int, StateMachineError<MyState>>!
+    var publisher: CurrentValueSubject<Int, StateMachineError<TestState>>!
     var log: [Int]!
     var x: Int!
 
@@ -51,35 +51,35 @@ class AsyncThrowingSequenceTests: XCTestCase {
     }
 
     // This uses an in-house ``AsyncThrowingSequence`` which erases the underlying publisher.
-    func testAsyncThrowingSequence() async throws {
+//    func testAsyncThrowingSequence() async throws {
+//
+//        for try await value in AsyncThrowingSequence(publisher: publisher) {
+//            log.append(value)
+//            sendNext()
+//        }
+//
+//        expect(self.log) == [0, 1, 2, 3, 4]
+//    }
+//
+//    // This uses an in-house ``AsyncThrowingSequence`` which erases the underlying publisher.
+//    func testAsyncThrowingSequenceFailure() async throws {
+//
+//        do {
+//            for try await value in AsyncThrowingSequence(publisher: publisher) {
+//                log.append(value)
+//                sendNext(then: .failure(.alreadyInState))
+//            }
+//            fail("Error not thrown")
+//        }
+//        catch StateMachineError<TestState>.alreadyInState {
+//            expect(self.log) == [0, 1, 2, 3, 4]
+//        }
+//        catch {
+//            fail("Unexpected error \(error)")
+//        }
+//    }
 
-        for try await value in AsyncThrowingSequence(publisher: publisher) {
-            log.append(value)
-            sendNext()
-        }
-
-        expect(self.log) == [0, 1, 2, 3, 4]
-    }
-
-    // This uses an in-house ``AsyncThrowingSequence`` which erases the underlying publisher.
-    func testAsyncThrowingSequenceFailure() async throws {
-
-        do {
-            for try await value in AsyncThrowingSequence(publisher: publisher) {
-                log.append(value)
-                sendNext(then: .failure(.alreadyInState))
-            }
-            fail("Error not thrown")
-        }
-        catch StateMachineError<MyState>.alreadyInState {
-            expect(self.log) == [0, 1, 2, 3, 4]
-        }
-        catch {
-            fail("Unexpected error \(error)")
-        }
-    }
-
-    func sendNext(then: Subscribers.Completion<StateMachineError<MyState>> = .finished) {
+    func sendNext(then: Subscribers.Completion<StateMachineError<TestState>> = .finished) {
         Task {
             x += 1
             if x == 5 {

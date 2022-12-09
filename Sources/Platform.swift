@@ -7,5 +7,5 @@ import Foundation
 /// Defines the interface to the underlying platform the code is running on.
 protocol Platform<S> {
     associatedtype S: StateIdentifier
-    func configure(machine: any Machine<S>, executor: isolated any TransitionExecutor<S>) async throws
+    func configure(machine: any Transitionable<S>) async throws
 }

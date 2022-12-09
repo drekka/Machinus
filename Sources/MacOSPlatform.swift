@@ -11,6 +11,6 @@ import Foundation
     /// Defines MacOS unique features.
     struct MacOSPlatform<S>: Platform where S: StateIdentifier {
 
-        func configure(machine: any Machine<S>, executor: isolated any TransitionExecutor<S>) async throws {}
+        func configure(machine: any Transitionable<S>) async throws {}
     }
 #endif

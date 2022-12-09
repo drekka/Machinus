@@ -6,16 +6,34 @@ import Foundation
 import Combine
 
 /// A "Missing" implementation that allows us to generate a throwing sequence from a publisher.
-public struct AsyncThrowingSequence<T, E>: AsyncSequence where E: Error {
+//public struct AsyncThrowingSequence<T, E>: AsyncSequence where E: Error {
+//
+//    public typealias AsyncIterator = AsyncThrowingPublisher<AnyPublisher<T, E>>.Iterator
+//    public typealias Element = T
+//
+//    private let publisher: AsyncThrowingPublisher<AnyPublisher<T, E>>
+//
+//    public init<P>(publisher: P) where P: Publisher, P.Output == T, P.Failure == E {
+//        let anyPublisher = publisher as? AnyPublisher<T, E> ?? publisher.eraseToAnyPublisher()
+//        self.publisher = AsyncThrowingPublisher(anyPublisher)
+//    }
+//
+//    public func makeAsyncIterator() -> AsyncIterator {
+//        publisher.makeAsyncIterator()
+//    }
+//}
 
-    public typealias AsyncIterator = AsyncThrowingPublisher<AnyPublisher<T, E>>.Iterator
+/// Version of an ``AsyncPublisher`` that type erases the publisher it is wrapping.
+public struct ErasedAsyncPublisher<T>: AsyncSequence {
+
+    public typealias AsyncIterator = AsyncPublisher<AnyPublisher<T, Never>>.Iterator
     public typealias Element = T
 
-    private let publisher: AsyncThrowingPublisher<AnyPublisher<T, E>>
+    private let publisher: AsyncPublisher<AnyPublisher<T, Never>>
 
-    public init<P>(publisher: P) where P: Publisher, P.Output == T, P.Failure == E {
-        let anyPublisher = publisher as? AnyPublisher<T, E> ?? publisher.eraseToAnyPublisher()
-        self.publisher = AsyncThrowingPublisher(anyPublisher)
+    public init<P>(publisher: P) where P: Publisher, P.Output == T, P.Failure == Never {
+        let anyPublisher = publisher as? AnyPublisher<T, Never> ?? publisher.eraseToAnyPublisher()
+        self.publisher = AsyncPublisher(anyPublisher)
     }
 
     public func makeAsyncIterator() -> AsyncIterator {

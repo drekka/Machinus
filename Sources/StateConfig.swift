@@ -162,25 +162,25 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
         case redirect(to: S)
     }
 
-    func preflightTransition(toState: StateConfig<S>, inMachine machine: any Machine<S>) async -> PreflightResponse<S> {
+    func preflightTransition(toState: StateConfig<S>, inMachine machine: any Transitionable<S>) async -> PreflightResponse<S> {
 
-        systemLog.trace("🤖 [\(machine.name)] Preflighting transition to \(toState)")
+        machine.logger.trace("Preflighting transition to \(toState) ...")
 
         // If the state is the same state then do nothing.
         if toState == self {
-            systemLog.trace("🤖 [\(machine.name)] Already in state \(self)")
+            machine.logger.trace("Already in state \(self)")
             return .fail(error: .alreadyInState)
         }
 
         // Check for a final state transition
         if features.contains(.final) {
-            systemLog.error("🤖 [\(machine.name)] Final state, cannot transition")
+            machine.logger.error("Final state, cannot transition")
             return .fail(error: .illegalTransition)
         }
 
         /// Process the registered transition barrier.
         if let barrier = toState.transitionBarrier {
-            systemLog.trace("🤖 [\(machine.name)] Executing transition barrier")
+            machine.logger.trace("Executing transition barrier")
             switch await barrier(machine) {
             case .allow: return .allow
             case .fail: return .fail(error: .transitionDenied)
@@ -189,7 +189,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
         }
 
         guard allowedTransitions.contains(toState.identifier) || toState.features.contains(.global) else {
-            systemLog.trace("🤖 [\(machine.name)] Illegal transition")
+            machine.logger.trace("Illegal transition")
             return .fail(error: .illegalTransition)
         }
 
