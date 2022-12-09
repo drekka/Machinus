@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "Machinus",
     platforms: [
-        .macOS(.v12),
+        .macOS(.v13),
         .iOS(.v16),
         .tvOS(.v16),
     ],
