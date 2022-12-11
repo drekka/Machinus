@@ -54,4 +54,10 @@ public extension Machine {
     func transition(to state: S) async {
         await transition(to: state, completion: nil)
     }
+
+    /// Provides an async sequence of state changes.
+    nonisolated var stateSequence: ErasedAsyncPublisher<S> {
+        ErasedAsyncPublisher(publisher: statePublisher)
+    }
 }
+

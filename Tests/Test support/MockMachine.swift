@@ -14,9 +14,13 @@ actor MockMachine: Transitionable {
     let stateConfigs: [TestState: StateConfig<TestState>]
     let initialState: StateConfig<TestState>
 
-    let currentState: CurrentValueSubject<StateConfig<TestState>, StateMachineError<TestState>>
+    let currentState: CurrentValueSubject<StateConfig<TestState>, Never>
     var currentStateConfig: StateConfig<TestState> {
         currentState.value
+    }
+
+    nonisolated var statePublisher: AnyPublisher<TestState, Never> {
+        currentState.map(\.identifier).eraseToAnyPublisher()
     }
 
     var state: TestState {
