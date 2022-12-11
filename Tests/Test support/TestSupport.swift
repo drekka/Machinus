@@ -18,100 +18,65 @@ enum TestState: StateIdentifier {
     case global
 }
 
-/// Used to log messages across concurrency domains.
-actor LogActor {
-    var entries: [String] = []
-    func append(_ value: String) {
-        entries.append(value)
-    }
-}
-
-/// Used to flag an event across concurrency domains.
-actor WaitFlagActor {
-    var flag = false
-    func set() {
-        flag = true
-    }
-}
-
 extension Machine {
 
     func testReset(file: StaticString = #file, line: UInt = #line,
                    to desiredState: S) async {
         let previousState = await state
-        await action(file: file, line: line) { completed in
-            await self.reset { _, result in
-                result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
-                completed()
-            }
+        await reset { _, result in
+            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
         }
+        await waitFor(file: file, line: line, await state == desiredState)
     }
 
     func testTransition(file: StaticString = #file, line: UInt = #line,
                         to desiredState: S) async {
         let previousState = await state
-        await action(file: file, line: line) { completed in
-            await self.transition(to: desiredState) { machine, result in
-                await expect(file: file, line: line, { await machine.state }) == desiredState
-                result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
-                completed()
-            }
+        await transition(to: desiredState) { _, result in
+            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
         }
+        await waitFor(file: file, line: line, await state == desiredState)
     }
 
     func testTransition(file: StaticString = #file, line: UInt = #line,
                         to desiredState: S,
                         redirectsTo finalState: S) async {
         let previousState = await state
-        await action(file: file, line: line) { completed in
-            await self.transition(to: desiredState) { machine, result in
-                await expect(file: file, line: line, { await machine.state }) == finalState
-                result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: finalState)
-                completed()
-            }
+        await transition(to: desiredState) { _, result in
+            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: finalState)
         }
+        await waitFor(file: file, line: line, await state == finalState)
     }
 
     func testTransition(file: StaticString = #file, line: UInt = #line,
                         to desiredState: S,
                         failsWith expectedError: StateMachineError<S>) async {
-        await action(file: file, line: line) { completed in
-            await self.transition(to: desiredState) { _, result in
-                result.validateFailure(file: file, line: line, with: expectedError)
-                completed()
-            }
+        let finished = FlagActor()
+        await transition(to: desiredState) { _, result in
+            result.validateFailure(file: file, line: line, with: expectedError)
+            await finished.set()
         }
+        await waitFor(file: file, line: line, await finished.flag)
     }
 
     func testDynamicTransition(file: StaticString = #file, line: UInt = #line,
                                to desiredState: S) async {
         let previousState = await state
-        await action(file: file, line: line) { completed in
-            await self.transition { machine, result in
-                await expect(file: file, line: line, { await machine.state }) == desiredState
-                result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
-                completed()
-            }
+        await transition { machine, result in
+            await expect(file: file, line: line, { await machine.state }) == desiredState
+            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
         }
+        await waitFor(file: file, line: line, await state == desiredState)
     }
 
     func testDynamicTransition(file: StaticString = #file, line: UInt = #line,
                                failsWith expectedError: StateMachineError<S>) async {
-        await action(file: file, line: line) { completed in
-            await self.transition { _, result in
-                result.validateFailure(file: file, line: line, with: expectedError)
-                completed()
-            }
+        let finished = FlagActor()
+        await transition { _, result in
+            result.validateFailure(file: file, line: line, with: expectedError)
+            await finished.set()
         }
-    }
-
-    private func action(file _: StaticString = #file, line _: UInt = #line,
-                        queuedAction action: @escaping (@escaping () -> Void) async -> Void) async where S: StateIdentifier {
-        let exp = XCTestExpectation(description: "Machine action")
-        try? await Task.sleep(for: .milliseconds(100)) // Allow for back pressure with a slight pause.
-        await action { exp.fulfill() }
-        let waiter = XCTWaiter()
-        waiter.wait(for: [exp], timeout: 5.0)
+        await waitFor(file: file, line: line, await finished.flag)
     }
 }
 
@@ -137,26 +102,6 @@ private extension Result {
             fail("Unexpected transition failure: \(error)", file: file, line: line)
         case .success:
             fail("Expected transition to fail", file: file, line: line)
-        }
-    }
-}
-
-extension XCTestCase {
-
-    /// Waits for an assertion to come true.
-    ///
-    /// This version of wait polls the assertion periodically and ``Task.sleep(...)`` in between. This is an alternative to
-    /// a `XCTest` expectation which can tie up the thread the code is working on.
-    func waitFor(file: StaticString = #file, line: UInt = #line,
-                 for seconds: Int = 5,
-                 polling poll: Int = 100,
-                 message: String = "Expression failed",
-                 _ assertion: @autoclosure () async -> Bool) async {
-        for _ in 1 ... (seconds * 1000 / poll) where !(await assertion()) {
-            try? await Task.sleep(for: .milliseconds(poll))
-        }
-        if !(await assertion()) {
-            fail(message, file: file, line: line)
         }
     }
 }

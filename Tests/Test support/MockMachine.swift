@@ -35,7 +35,11 @@ actor MockMachine: Transitionable {
 
     func reset(completion _: TransitionCompleted<TestState>?) async {}
 
-    func queue(transition _: @escaping (any Transitionable<TestState>) async throws -> StateConfig<TestState>, completion _: TransitionCompleted<TestState>?) async {}
+    func suspend(_: Bool) async {}
+
+    func queue(atHead _: Bool,
+               transition _: @escaping (any Transitionable<TestState>) async throws -> StateConfig<TestState>,
+               completion _: TransitionCompleted<TestState>?) async {}
 
     func performTransition(toState state: TestState) async throws -> StateConfig<TestState> {
         let previous = currentStateConfig

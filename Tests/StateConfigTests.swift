@@ -82,6 +82,14 @@ class StateConfigTests: XCTestCase {
         expect(result) == .allow
     }
 
+    func testPreflightBarrierAllowsThenAllowTransitionFails() async {
+        let barrierState = StateConfig<TestState>(.ccc, transitionBarrier: { _ in
+            .allow
+        })
+        let result = await stateA.preflightTransition(toState: barrierState, inMachine: MockMachine())
+        expect(result) == .fail(error: .illegalTransition)
+    }
+
     func testPreflightBarrierFails() async {
         let barrierState = StateConfig<TestState>(.bbb, transitionBarrier: { _ in
             .fail

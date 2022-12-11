@@ -122,7 +122,6 @@ class StateMachineTests: XCTestCase {
 
     func testTransitionClosureSequencingWhenNestedStateChange() async throws {
 
-        let exp = expectation(description: "Nested transition")
         let machine = try await StateMachine { _, from, to in
             self.log.append("Did transition \(from) -> \(to)")
         }
@@ -134,18 +133,17 @@ class StateMachineTests: XCTestCase {
             StateConfig<TestState>(.bbb,
                                    didEnter: { machine, _, _ in
                                        self.log.append("bbbEnter")
-                await machine.transition(to: .ccc) { _, _ in
-                    exp.fulfill()
-                }
+                                       await machine.transition(to: .ccc)
                                    },
-                                   didExit: { _, _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
+                                   didExit: { _, _, _ in self.log.append("bbbExit") },
+                                   canTransitionTo: .ccc)
             StateConfig<TestState>(.ccc,
                                    didEnter: { _, _, _ in self.log.append("cccEnter") },
                                    didExit: { _, _, _ in self.log.append("cccExit") })
         }
 
-        await machine.testTransition(to: .bbb)
-        wait(for: [exp], timeout: 5.0)
+        await machine.transition(to: .bbb)
+        await waitFor(await machine.state == .ccc)
         expect(self.log) == ["aaaExit", "bbbEnter", "Did transition aaa -> bbb", "bbbExit", "cccEnter", "Did transition bbb -> ccc"]
     }
 

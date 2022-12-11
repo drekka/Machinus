@@ -5,14 +5,11 @@
 import Foundation
 import os
 
-/// Applies the protocols to the state machine.
-extension StateMachine: Transitionable {}
-
 /// Provides access to internal functions and properties.
 protocol Transitionable<S>: Machine {
 
     /// Accesses a prebuilt logger for the machine.
-    var logger: Logger { get }
+    nonisolated var logger: Logger { get }
 
     /// Returns the current state's config.
     var currentStateConfig: StateConfig<S> { get async }
@@ -23,11 +20,17 @@ protocol Transitionable<S>: Machine {
     /// The initial state of the machine.
     nonisolated var initialState: StateConfig<S> { get }
 
+    /// Enables or disables the execution of transitions.
+    ///
+    /// When setting to false, thus enabling execution, any queued transitions will automatically be executed.
+    func suspend(_ suspended: Bool) async
+
     /// Queues a passed closure on the transition queue.
     ///
+    /// - parameter atHead: If true, queues the transition as the next transition to be executed.
     /// - parameter transition: A closures containing the transition to be executed.
     /// - parameter completion: A closure that will be called once the transition is finished.
-    func queue(transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>, completion: TransitionCompleted<S>?) async
+    func queue(atHead: Bool, transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>, completion: TransitionCompleted<S>?) async
 
     /// Performs the main transition flow.
     func performTransition(toState newState: S) async throws -> StateConfig<S>
@@ -40,8 +43,9 @@ extension Transitionable {
 
     /// Queues a passed closure on the transition queue.
     ///
+    /// - parameter atHead: If true, queues the transition as the next transition to be executed.
     /// - parameter transition: A closures containing the transition to be executed.
-    func queue(transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>) async {
-        await queue(transition: transition, completion: nil)
+    func queue(atHead: Bool, transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>) async {
+        await queue(atHead: atHead, transition: transition, completion: nil)
     }
 }

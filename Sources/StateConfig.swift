@@ -54,11 +54,11 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
     public init(_ identifier: S,
-                            didEnter: DidEnterState<S>? = nil,
-                            didExit: DidExitState<S>? = nil,
-                            dynamicTransition: DynamicTransition<S>? = nil,
-                            transitionBarrier: TransitionBarrier<S>? = nil,
-                            canTransitionTo: S...) {
+                didEnter: DidEnterState<S>? = nil,
+                didExit: DidExitState<S>? = nil,
+                dynamicTransition: DynamicTransition<S>? = nil,
+                transitionBarrier: TransitionBarrier<S>? = nil,
+                canTransitionTo: S...) {
         self.init(identifier,
                   features: [],
                   didEnter: didEnter,
@@ -164,7 +164,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
 
     func preflightTransition(toState: StateConfig<S>, inMachine machine: any Transitionable<S>) async -> PreflightResponse<S> {
 
-        machine.logger.trace("Preflighting transition to \(toState) ...")
+        machine.logger.trace("Preflighting transition \(self) -> \(toState)")
 
         // If the state is the same state then do nothing.
         if toState == self {
@@ -182,9 +182,11 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
         if let barrier = toState.transitionBarrier {
             machine.logger.trace("Executing transition barrier")
             switch await barrier(machine) {
-            case .allow: return .allow
             case .fail: return .fail(error: .transitionDenied)
             case .redirect(to: let redirectState): return .redirect(to: redirectState)
+            case .allow:
+                // Barrier passes so fall through to allowed transition test.
+                break
             }
         }
 

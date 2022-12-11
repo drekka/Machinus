@@ -8,7 +8,7 @@ import Foundation
 /// Public interface for the state machine.
 ///
 /// This is the public protocol passed to closures.
-public protocol Machine<S>: AnyActor {
+public protocol Machine<S>: Actor {
 
     /// The state identifier.
     associatedtype S: StateIdentifier

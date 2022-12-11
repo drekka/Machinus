@@ -10,17 +10,17 @@ import os
 private actor TransitionLock {
     private var transition: Task<Void, Never>?
     var isExecuting: Bool { transition != nil }
-    func executingTransition(_ newTransition: Task<Void, Never>) {
+    func markAsExecuting(_ newTransition: Task<Void, Never>) {
         transition = newTransition
     }
 
-    func transitionFinished() {
+    func executionFinished() {
         transition = nil
     }
 }
 
 /// The implementation of a state machine.
-public actor StateMachine<S>: Machine where S: StateIdentifier {
+public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
 
     private let didTransition: MachineDidTransition<S>?
     private let currentStateSubject: CurrentValueSubject<StateConfig<S>, Never>
@@ -29,6 +29,7 @@ public actor StateMachine<S>: Machine where S: StateIdentifier {
     private var postTransitionNotifications = false
     private var transitionQueue: [(any Transitionable<S>) async -> Void] = []
     private var executingTransition = TransitionLock()
+    private var suspended = false
 
     nonisolated let stateConfigs: [S: StateConfig<S>]
     nonisolated let initialState: StateConfig<S>
@@ -82,72 +83,98 @@ public actor StateMachine<S>: Machine where S: StateIdentifier {
         postTransitionNotifications = postNotifications
     }
 
+    func suspend(_ suspended: Bool) async {
+        self.suspended = suspended
+        if suspended {
+            logger.trace("Suspending transition execution")
+        } else {
+            logger.trace("Resuming transition execution")
+            await executeNextTransition()
+        }
+    }
+
     // MARK: - Public transition requests
 
     public func reset(completion: TransitionCompleted<S>?) async {
-        logger.trace("Requesting reset")
-        await queue(transition: { machine in
-                        machine.logger.trace("Resetting to initial state")
-                        return await machine.completeTransition(toState: machine.initialState, didExit: nil, didEnter: machine.initialState.didEnter)
-                    },
-                    completion: completion)
+        logger.trace("Queuing reset")
+        transitionQueue = []
+        await queue(atHead: true, transition: { machine in
+            machine.logger.trace("Resetting to initial state")
+            return await machine.completeTransition(toState: machine.initialState, didExit: nil, didEnter: machine.initialState.didEnter)
+        },
+        completion: completion)
     }
 
     public func transition(completion: TransitionCompleted<S>?) async {
-        logger.trace("Requesting dynamic transition")
-        await queue(transition: { machine in
-                        guard let dynamicClosure = await machine.currentStateConfig.dynamicTransition else {
-                            throw StateMachineError<S>.noDynamicClosure(await machine.state)
-                        }
-                        machine.logger.trace("Running dynamic transition")
-                        return try await machine.performTransition(toState: await dynamicClosure(machine))
-                    },
-                    completion: completion)
+        logger.trace("Queuing dynamic transition")
+        await queue(atHead: false, transition: { machine in
+            guard let dynamicClosure = await machine.currentStateConfig.dynamicTransition else {
+                throw StateMachineError<S>.noDynamicClosure(await machine.state)
+            }
+            machine.logger.trace("Running dynamic transition")
+            return try await machine.performTransition(toState: await dynamicClosure(machine))
+        },
+        completion: completion)
     }
 
     public func transition(to state: S, completion: TransitionCompleted<S>?) async {
-        logger.trace("Requesting transition to .\(String(describing: state))")
-        await queue(transition: { machine in
-                        try await machine.performTransition(toState: state)
-                    },
-                    completion: completion)
+        logger.trace("Queuing transition to .\(String(describing: state))")
+        await queue(atHead: false, transition: { machine in
+            try await machine.performTransition(toState: state)
+        },
+        completion: completion)
     }
 
     // MARK: - Transition sequence
 
-    func queue(transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>, completion: TransitionCompleted<S>?) async {
-        transitionQueue.insert({ machine in
-                                   do {
-                                       let priorState = try await transition(machine).identifier
-                                       await completion?(machine, .success((from: priorState, to: await machine.state)))
-                                   } catch let error as StateMachineError<S> {
-                                       await completion?(machine, .failure(error))
-                                   } catch {
-                                       machine.logger.trace("Unexpected error detected: \(error.localizedDescription).")
-                                       await completion?(machine, .failure(StateMachineError<S>.unexpectedError(error)))
-                                   }
-                               },
-                               at: 0)
+    func queue(atHead: Bool, transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>, completion: TransitionCompleted<S>?) async {
+        let wrappedTransition = { machine in
+            do {
+                let priorState = try await transition(machine).identifier
+                await completion?(machine, .success((from: priorState, to: await machine.state)))
+            } catch let error as StateMachineError<S> {
+                await completion?(machine, .failure(error))
+            } catch {
+                machine.logger.trace("Unexpected error detected: \(error.localizedDescription).")
+                await completion?(machine, .failure(StateMachineError<S>.unexpectedError(error)))
+            }
+        }
+        if atHead {
+            transitionQueue.append(wrappedTransition)
+        } else {
+            transitionQueue.insert(wrappedTransition, at: 0)
+        }
         await executeNextTransition()
     }
 
     // Execute the next block. Unless already executing, then ignore.
     private func executeNextTransition() async {
 
-        // If executing bail.
-        guard !(await executingTransition.isExecuting) else {
-            logger.trace("Transition already in flight, queuing ...")
+        // Exit if there is nothing to execute.
+        if transitionQueue.isEmpty {
+            return
+        }
+
+        // If suspended or already executing a transition then bail.
+        if await executingTransition.isExecuting {
+            logger.trace("Transition already in flight, waiting ...")
+            return
+        }
+
+        // If suspended or already executing a transition then bail.
+        if suspended {
+            logger.trace("Execution suspended, waiting ...")
             return
         }
 
         if let nextTransition = transitionQueue.popLast() {
-            logger.trace("Starting queued transition")
-            await executingTransition.executingTransition(Task.detached(priority: .background) { [weak self] in
+            logger.trace("Executing next transition")
+            await executingTransition.markAsExecuting(Task.detached(priority: .background) { [weak self] in
                 guard let self else {
                     return
                 }
                 await nextTransition(self)
-                await self.executingTransition.transitionFinished()
+                await self.executingTransition.executionFinished()
                 await self.executeNextTransition()
             })
         }

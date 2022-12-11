@@ -41,7 +41,10 @@
                     guard let machine else { return }
                     Task {
                         machine.logger.trace("iOS platform received background notification")
-                        await machine.queue { machine in
+                        await machine.queue(atHead: false) { machine in
+
+                            // Disable subsequent transitions until foreground is received.
+                            await machine.suspend(true)
 
                             guard await self.restoreState == nil else {
                                 throw StateMachineError<S>.integrityError("Machine already in the background state.")
@@ -61,8 +64,9 @@
                                                        object: nil, queue: nil) { [weak machine] _ in
                     guard let machine else { return }
                     Task {
+
                         machine.logger.trace("iOS platform received foreground notification")
-                        await machine.queue { machine in
+                        await machine.queue(atHead: true) { machine in
 
                             guard let toState = await self.restoreState else {
                                 throw StateMachineError<S>.integrityError("Restoring from background but no state found to restore to.")
@@ -72,6 +76,9 @@
                             await self.setRestoreState(nil)
                             return backgroundState
                         }
+
+                        // Now resume execution.
+                        await machine.suspend(false)
                     }
                 }
             )
