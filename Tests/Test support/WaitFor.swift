@@ -25,8 +25,7 @@ func waitFor(file: StaticString = #file, line: UInt = #line,
              _ assertion: @autoclosure () async -> Bool) async {
     let clock = ContinuousClock()
     let startedAt = clock.now
-    // swiftformat:disable:next --redundantParens
-    while !(await assertion()) {
+    while await !assertion() {
         try? await Task.sleep(for: .milliseconds(pollPeriod))
         let components = startedAt.duration(to: clock.now).components
         let duration = Double(components.seconds) + Double(components.attoseconds) / 1_000_000_000_000_000_000
