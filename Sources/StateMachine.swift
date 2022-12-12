@@ -6,16 +6,31 @@ import Combine
 import Foundation
 import os
 
-/// Used to lock each transition so we don't have concurrency issues.
-private actor TransitionLock {
-    private var transition: Task<Void, Never>?
-    var isExecuting: Bool { transition != nil }
-    func markAsExecuting(_ newTransition: Task<Void, Never>) {
-        transition = newTransition
+/// Simple state machine used to lock the machine execution so we don't have concurrency issues.
+private actor MachineState {
+
+    private enum State {
+        case idle
+        case transitioning
+        case suspended
     }
 
-    func executionFinished() {
-        transition = nil
+    private var state: State = .idle
+
+    var ready: Bool { state == .idle }
+
+    func startTransition(_: Task<Void, Never>) {
+        state = .transitioning
+    }
+
+    func transitionFinished() {
+        if state != .suspended {
+            state = .idle
+        }
+    }
+
+    func suspend(_ suspend: Bool) {
+        state = suspend ? .suspended : .idle
     }
 }
 
@@ -24,12 +39,11 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
 
     private let didTransition: MachineDidTransition<S>?
     private let currentStateSubject: CurrentValueSubject<StateConfig<S>, Never>
+    private let machineState = MachineState()
     private let platform: any Platform<S>
 
     private var postTransitionNotifications = false
     private var transitionQueue: [(any Transitionable<S>) async -> Void] = []
-    private var executingTransition = TransitionLock()
-    private var suspended = false
 
     nonisolated let stateConfigs: [S: StateConfig<S>]
     nonisolated let initialState: StateConfig<S>
@@ -84,7 +98,7 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
     }
 
     func suspend(_ suspended: Bool) async {
-        self.suspended = suspended
+        await machineState.suspend(suspended)
         if suspended {
             logger.trace("Suspending transition execution")
         } else {
@@ -150,34 +164,22 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
     // Execute the next block. Unless already executing, then ignore.
     private func executeNextTransition() async {
 
-        // Exit if there is nothing to execute.
-        if transitionQueue.isEmpty {
-            return
-        }
-
         // If suspended or already executing a transition then bail.
-        if await executingTransition.isExecuting {
-            logger.trace("Transition already in flight, waiting ...")
+        guard await machineState.ready, let nextTransition = transitionQueue.popLast() else {
+            logger.trace("Machine suspended, currently executing or no pending transition, waiting ...")
             return
         }
 
-        // If suspended or already executing a transition then bail.
-        if suspended {
-            logger.trace("Execution suspended, waiting ...")
-            return
-        }
-
-        if let nextTransition = transitionQueue.popLast() {
-            logger.trace("Executing next transition")
-            await executingTransition.markAsExecuting(Task.detached(priority: .background) { [weak self] in
+        logger.trace("Executing next transition")
+        await machineState.startTransition(
+            Task.detached(priority: .background) { [weak self] in
                 guard let self else {
                     return
                 }
                 await nextTransition(self)
-                await self.executingTransition.executionFinished()
+                await self.machineState.transitionFinished()
                 await self.executeNextTransition()
             })
-        }
     }
 
     func performTransition(toState newState: S) async throws -> StateConfig<S> {

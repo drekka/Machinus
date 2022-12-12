@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Derek Clarkson on 11/12/2022.
 //
@@ -25,7 +25,8 @@ func waitFor(file: StaticString = #file, line: UInt = #line,
              _ assertion: @autoclosure () async -> Bool) async {
     let clock = ContinuousClock()
     let startedAt = clock.now
-    while await assertion() == false {
+    // swiftformat:disable:next --redundantParens
+    while !(await assertion()) {
         try? await Task.sleep(for: .milliseconds(pollPeriod))
         let components = startedAt.duration(to: clock.now).components
         let duration = Double(components.seconds) + Double(components.attoseconds) / 1_000_000_000_000_000_000
