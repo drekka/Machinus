@@ -1,7 +1,4 @@
 //
-//  CombineTests.swift
-//  MachinusTests
-//
 //  Created by Derek Clarkson on 25/5/20.
 //  Copyright © 2020 Derek Clarkson. All rights reserved.
 //
@@ -11,78 +8,86 @@ import Machinus
 import Nimble
 import XCTest
 
-enum State: StateIdentifier {
-    case first
-    case second
-    case third
-}
-
 class CombineTests: XCTestCase {
 
-    var machine: StateMachine<State>!
-    var state: State?
-    var cancellable: AnyCancellable?
+    private var machine: StateMachine<TestState>!
+    private var states: [TestState]!
+    private var cancellables: [AnyCancellable]!
 
-    override func setUp() {
+    override func setUp() async throws {
 
-        state = nil
-        let state1 = StateConfig<State>(.first, canTransitionTo: .second)
-        let state2 = StateConfig<State>(.second, canTransitionTo: .third)
-        let state3 = StateConfig<State>(.third, canTransitionTo: .first)
+        cancellables = []
+        states = []
 
-        machine = StateMachine(withStates: state1, state2, state3)
-
-        cancellable = machine.sink { newState in
-            print("Received " + String(describing: newState))
-            self.state = newState
+        machine = try await StateMachine {
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb, canTransitionTo: .ccc)
+            StateConfig<TestState>(.ccc, canTransitionTo: .aaa)
         }
+
+        cancellables.append(
+            machine.statePublisher.sink { result in
+                if case .failure(let error) = result {
+                    fail("Unexpected error \(error)")
+                }
+            }
+            receiveValue: { self.states.append($0)
+            }
+        )
     }
 
-    func testReceivingUpdatesWhenStateChanges() {
-        expect(self.state).toEventually(equal(.first))
-        machine.transition(to: .second)
-        expect(self.state).toEventually(equal(.second))
-        machine.transition(to: .third)
-        expect(self.state).toEventually(equal(.third))
+    override func tearDown() {
+        cancellables = nil
+        super.tearDown()
     }
 
-    func testCancellingTheSubscriptionStopsUpdates() {
-
-        expect(self.state).toEventually(equal(.first))
-        machine.transition(to: .second)
-        expect(self.state).toEventually(equal(.second))
-
-        cancellable?.cancel()
-        cancellable = nil
-
-        machine.transition(to: .third)
-        expect(self.state).toNever(equal(.third))
+    func testReceivingUpdatesWhenStateChanges() async throws {
+        await machine.testTransition(to: .bbb)
+        expect(self.states) == [.aaa, .bbb]
+        await machine.testTransition(to: .ccc)
+        expect(self.states) == [.aaa, .bbb, .ccc]
     }
 
-    func testMultipleSubscribers() {
+    func testCancellingTheSubscriptionStopsUpdates() async throws {
 
-        var state1: State?
-        var state2: State?
+        await machine.testTransition(to: .bbb)
+        expect(self.states) == [.aaa, .bbb]
 
-        let cancellables = [
-            machine.sink { newState in
-                state1 = newState
-            },
-            machine.sink { newState in
-                state2 = newState
-            },
+        cancellables?.forEach { $0.cancel() }
+        cancellables = nil
+
+        await machine.testTransition(to: .ccc)
+        expect(self.states) == [.aaa, .bbb]
+    }
+
+    func testMultipleSubscribers() async throws {
+
+        var states1: [TestState] = []
+        var states2: [TestState] = []
+
+        cancellables = [
+            machine.statePublisher.sink { result in
+                if case .failure(let error) = result {
+                    fail("Unexpected error \(error)")
+                }
+            }
+            receiveValue: { states1.append($0) },
+            machine.statePublisher.sink { result in
+                if case .failure(let error) = result {
+                    fail("Unexpected error \(error)")
+                }
+            }
+            receiveValue: { states2.append($0) },
         ]
 
-        expect(state1).toEventually(equal(.first))
-        expect(state2).toEventually(equal(.first))
-
-        machine.transition(to: .second)
-        expect(state1).toEventually(equal(.second))
-        expect(state2).toEventually(equal(.second))
+        await machine.testTransition(to: .bbb)
+        expect(states1) == [.aaa, .bbb]
+        expect(states2) == [.aaa, .bbb]
 
         cancellables[1].cancel()
-        machine.transition(to: .third)
-        expect(state1).toEventually(equal(.third))
-        expect(state2).toNever(equal(.third))
+
+        await machine.testTransition(to: .ccc)
+        expect(states1) == [.aaa, .bbb, .ccc]
+        expect(states2) == [.aaa, .bbb]
     }
 }

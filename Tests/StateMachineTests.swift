@@ -1,280 +1,261 @@
 //
-//  MachinusTests.swift
-//  MachinusTests
-//
 //  Created by Derek Clarkson on 11/2/19.
 //  Copyright © 2019 Derek Clarkson. All rights reserved.
 //
 
 @testable import Machinus
 import Nimble
+import RegexBuilder
 import XCTest
-
 
 class StateMachineTests: XCTestCase {
 
+    private var log: [String]!
+
+    override func setUp() {
+        super.setUp()
+        log = []
+    }
+
     // MARK: - Lifecycle
 
-    func testName() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+    func testInitWithLessThan3StatesGeneratesFatal() async throws {
+        do {
+            _ = try await StateMachine {
+                StateConfig<TestState>(.aaa)
+                StateConfig<TestState>(.bbb)
+            }
+        } catch StateMachineError<TestState>.configurationError(let message) {
+            expect(message) == "Insufficient state. There must be at least 3 states."
         }
-        func hex(_ length: Int) -> String { "[0-9A-Za-z]{\(length)}" }
-        expect(machine.name).to(match("\(hex(8))-\(hex(4))-\(hex(4))-\(hex(4))-\(hex(12))<MyState>"))
     }
 
-    func testInitWithLessThan3StatesGeneratesFatal() {
-        expect(_ = StateMachine {
-            StateConfig<MyState>(.aaa)
-            StateConfig<MyState>(.bbb)
-        }).to(throwAssertion())
-    }
-
-    func testInitWithDuplicateStateIdentifiersGeneratesFatal() {
-        expect(_ = StateMachine {
-            StateConfig<MyState>(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.aaa)
-        }).to(throwAssertion())
-    }
-
-    func testReset() {
-
-        var aaaEnter = false
-
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+    func testInitWithDuplicateStateIdentifiersGeneratesFatal() async throws {
+        do {
+            _ = try await StateMachine {
+                StateConfig<TestState>(.aaa)
+                StateConfig<TestState>(.bbb)
+                StateConfig<TestState>(.aaa)
+            }
+        } catch StateMachineError<TestState>.configurationError(let message) {
+            expect(message) == "Duplicate states detected for identifier .aaa."
         }
-        expect(machine.state) == .aaa
-
-        machine.transition(to: .bbb)
-        expect(machine.state).toEventually(equal(.bbb))
-
-        machine.reset()
-
-        expect(machine.state).toEventually(equal(.aaa))
-        expect(aaaEnter) == true
     }
 
-    // MARK: - Transitions
+    func testReset() async throws {
 
-    func testTransition() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa,
+                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
+                                   canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb,
+                                   didEnter: { _, _, _ in self.log.append("bbbEnter") },
+                                   didExit: { _, _, _ in self.log.append("bbbExit") })
+            StateConfig<TestState>(.ccc)
         }
-        machine.transition(to: .bbb)
-        expect(machine.state).toEventually(equal(.bbb))
+
+        await machine.testTransition(to: .bbb)
+        await machine.testReset(to: .aaa)
+
+        expect(self.log) == ["bbbEnter", "aaaEnter"]
     }
 
-    func testTransitionClosureCalled() {
-        var callback: (MyState, MyState)?
-        let machine = StateMachine {
-            callback = ($0, $1)
+    // MARK: - Transition to
+
+    func testTransitionTo() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
+        }
+        await machine.testTransition(to: .bbb)
+    }
+
+    func testTransitionClosureCalled() async throws {
+
+        let machine = try await StateMachine { _, from, to in
+            self.log.append("Did transition \(from) -> \(to)")
         }
         withStates: {
-            StateConfig<MyState>(.aaa, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
         }
 
-        machine.transition(to: .bbb)
-        expect(callback?.0).toEventually(equal(.aaa))
-        expect(callback?.1) == .bbb
+        await machine.testTransition(to: .bbb)
+
+        expect(self.log) == ["Did transition aaa -> bbb"]
     }
 
-    func testTransitionToUnregisteredStateGeneratesFatal() {
-//        let machine = StateMachine {
-//            StateConfig<MyState>(.aaa)
-//            StateConfig<MyState>(.bbb)
-//            StateConfig<MyState>(.ccc)
-//        }
-//        expect(machine.transition(to: .final)).to(throwAssertion())
+    func testTransitionToUnregisteredStateFails() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
+        }
+        await machine.testTransition(to: .final, failsWith: .unknownState(.final))
     }
 
-    func testTransitionStateConfigEnterAndExitClosuresCalled() {
+    func testTransitionClosureSequencing() async throws {
 
-        var aaaEnter = false
-        var aaaExit = false
-        var bbbEnter = false
-        var bbbExit = false
-        var cccEnter = false
-        var cccExit = false
-
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, didExit: { _ in aaaExit = true }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true }, didExit: { _ in bbbExit = true }, canTransitionTo: .ccc)
-            StateConfig<MyState>(.ccc, didEnter: { _ in cccEnter = true }, didExit: { _ in cccExit = true })
+        let machine = try await StateMachine<TestState> { _, from, to in
+            self.log.append("Did transition \(from) -> \(to)")
+        }
+        withStates: {
+            StateConfig<TestState>(.aaa,
+                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
+                                   didExit: { _, _, _ in self.log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb,
+                                   didEnter: { _, _, _ in self.log.append("bbbEnter") },
+                                   didExit: { _, _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<TestState>(.ccc,
+                                   didEnter: { _, _, _ in self.log.append("cccEnter") },
+                                   didExit: { _, _, _ in self.log.append("cccExit") })
         }
 
-        machine.transition(to: .bbb)
-        expect(machine.state).toEventually(equal(.bbb))
-        expect(aaaEnter) == false
-        expect(aaaExit) == true
-        expect(bbbEnter) == true
-        expect(bbbExit) == false
-        expect(cccEnter) == false
-        expect(cccExit) == false
+        await machine.testTransition(to: .bbb)
+        expect(self.log) == ["aaaExit", "bbbEnter", "Did transition aaa -> bbb"]
 
-        aaaExit = false
-        bbbEnter = false
-
-        machine.transition(to: .ccc)
-        expect(machine.state).toEventually(equal(.ccc))
-        expect(aaaEnter) == false
-        expect(aaaExit) == false
-        expect(bbbEnter) == false
-        expect(bbbExit) == true
-        expect(cccEnter) == true
-        expect(cccExit) == false
+        await machine.testTransition(to: .ccc)
+        expect(self.self.log) == ["aaaExit", "bbbEnter", "Did transition aaa -> bbb", "bbbExit", "cccEnter", "Did transition bbb -> ccc"]
     }
 
-    func testTransitionToSameStateGeneratesErrorAndDoesntCallClosures() {
+    func testTransitionClosureSequencingWhenNestedStateChange() async throws {
 
-        var aaaEnter = false
-        var aaaExit = false
-        var bbbEnter = false
-        var bbbExit = false
-
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, didEnter: { _ in aaaEnter = true }, didExit: { _ in aaaExit = true })
-            StateConfig<MyState>(.bbb, didEnter: { _ in bbbEnter = true }, didExit: { _ in bbbExit = true })
-            StateConfig<MyState>(.ccc)
+        let machine = try await StateMachine { _, from, to in
+            self.log.append("Did transition \(from) -> \(to)")
+        }
+        withStates: {
+            StateConfig<TestState>(.aaa,
+                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
+                                   didExit: { _, _, _ in self.log.append("aaaExit") },
+                                   canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb,
+                                   didEnter: { machine, _, _ in
+                                       self.log.append("bbbEnter")
+                                       await machine.transition(to: .ccc)
+                                   },
+                                   didExit: { _, _, _ in self.log.append("bbbExit") },
+                                   canTransitionTo: .ccc)
+            StateConfig<TestState>(.ccc,
+                                   didEnter: { _, _, _ in self.log.append("cccEnter") },
+                                   didExit: { _, _, _ in self.log.append("cccExit") })
         }
 
-        expectTransition(machine, to: .aaa, toFailWith: .alreadyInState)
-
-        expect(aaaEnter) == false
-        expect(aaaExit) == false
-        expect(bbbEnter) == false
-        expect(bbbExit) == false
+        await machine.transition(to: .bbb)
+        await waitFor(await machine.state == .ccc)
+        expect(self.log) == ["aaaExit", "bbbEnter", "Did transition aaa -> bbb", "bbbExit", "cccEnter", "Did transition bbb -> ccc"]
     }
 
-    func testTransitionToStateNotInAllowedListGeneratesError() {
+    // MARK: - Preflight failures
 
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+    func testTransitionToSameStateGeneratesErrorAndDoesntCallClosures() async throws {
+
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa,
+                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
+                                   didExit: { _, _, _ in self.log.append("aaaExit") }, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb,
+                                   didEnter: { _, _, _ in self.log.append("bbbEnter") },
+                                   didExit: { _, _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
+            StateConfig<TestState>(.ccc)
         }
 
-        expectTransition(machine, to: .ccc, toFailWith: .illegalTransition)
+        await machine.testTransition(to: .aaa, failsWith: .alreadyInState)
+        expect(self.log) == []
     }
 
-    func testTransitionBarrierAllowsTransition() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, transitionBarrier: { .allow })
-            StateConfig<MyState>(.ccc)
+    func testTransitionToStateNotInAllowedListGeneratesError() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
         }
-
-        machine.transition(to: .bbb)
-        expect(machine.state).toEventually(equal(.bbb))
+        await machine.testTransition(to: .ccc, failsWith: .illegalTransition)
     }
 
-    func testTransitionBarrierDeniesTransition() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb, transitionBarrier: { .fail })
-            StateConfig<MyState>(.ccc)
+    func testTransitionBarrierAllowsTransition() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb, transitionBarrier: { _ in .allow })
+            StateConfig<TestState>(.ccc)
         }
-
-        expectTransition(machine, to: .bbb, toFailWith: .transitionDenied)
+        await machine.testTransition(to: .bbb)
     }
 
-    func testTransitionBarrierRedirectsToAnotherState() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, canTransitionTo: .bbb, .ccc)
-            StateConfig<MyState>(.bbb, transitionBarrier: { .redirect(to: .ccc) })
-            StateConfig<MyState>(.ccc)
+    func testTransitionBarrierDeniesTransition() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb, transitionBarrier: { _ in .fail })
+            StateConfig<TestState>(.ccc)
         }
-
-        machine.transition(to: .bbb)
-        expect(machine.state).toEventually(equal(.ccc))
+        await machine.testTransition(to: .bbb, failsWith: .transitionDenied)
     }
 
-    func testTransitionFromFinalGeneratesError() {
-
-        let machine = StateMachine {
-            StateConfig<MyState>.final(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+    func testTransitionBarrierRedirectsToAnotherState() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa, canTransitionTo: .bbb, .ccc)
+            StateConfig<TestState>(.bbb, transitionBarrier: { _ in .redirect(to: .ccc) })
+            StateConfig<TestState>(.ccc)
         }
-
-        expectTransition(machine, to: .bbb, toFailWith: .finalState)
+        await machine.testTransition(to: .bbb, redirectsTo: .ccc)
     }
 
-    func testTransitionFromFinalGlobalGeneratesError() {
-
-        let machine = StateMachine {
-            StateConfig<MyState>.finalGlobal(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+    func testTransitionFromFinalGeneratesError() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>.final(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
         }
+        await machine.testTransition(to: .bbb, failsWith: .illegalTransition)
+    }
 
-        expectTransition(machine, to: .bbb, toFailWith: .finalState)
+    func testTransitionFromFinalGlobalGeneratesError() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>.finalGlobal(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
+        }
+        await machine.testTransition(to: .bbb, failsWith: .illegalTransition)
     }
 
     // MARK: - Dynamic transitions
 
-    func testDynamicTransition() {
-
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa, dynamicTransition: { .bbb }, canTransitionTo: .bbb)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>(.ccc)
+    func testDynamicTransition() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa, dynamicTransition: { _ in .bbb }, canTransitionTo: .bbb)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
         }
-
-        machine.transition()
-        expect(machine.state).toEventually(equal(.bbb))
+        await machine.testDynamicTransition(to: .bbb)
     }
 
-    func testDynamicTransitionNotDefinedFailure() {
-//        let machine = StateMachine {
-//            StateConfig<MyState>(.aaa)
-//            StateConfig<MyState>(.bbb)
-//            StateConfig<MyState>(.ccc)
-//        }
-//        expect(machine.transition()).toEventually(throwAssertion())
+    func testDynamicTransitionNotDefinedFailure() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
+        }
+        await machine.testDynamicTransition(failsWith: .noDynamicClosure(.aaa))
     }
 
     // MARK: - Global states
 
-    func testTransitionToGlobalAlwaysWorks() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>.global(.global)
+    func testTransitionToGlobalAlwaysWorks() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>.global(.global)
         }
-
-        machine.transition(to: .global)
+        await machine.testTransition(to: .global)
     }
 
-    func testTransitionToFinalGlobal() {
-        let machine = StateMachine {
-            StateConfig<MyState>(.aaa)
-            StateConfig<MyState>(.bbb)
-            StateConfig<MyState>.finalGlobal(.global)
+    func testTransitionToFinalGlobal() async throws {
+        let machine = try await StateMachine {
+            StateConfig<TestState>(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>.finalGlobal(.global)
         }
-
-        machine.transition(to: .global)
-    }
-
-    // MARK: - Internal
-
-    private func expectTransition(_ machine: StateMachine<MyState>, to nextState: MyState,
-                                  toFailWith expectedError: StateMachineError,
-                                  file: StaticString = #file, line: UInt = #line) {
-        var result: Result<MyState, Error>?
-        machine.transition(to: nextState) { result = $0 }
-
-        var error: Error?
-        expect(file: file, line: line, result).toEventually(beFailure { error = $0 })
-        expect(file: file, line: line, error).to(matchError(expectedError))
+        await machine.testTransition(to: .global)
     }
 }

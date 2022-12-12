@@ -1,83 +1,52 @@
-# Machinus
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
-[![Build Status](https://travis-ci.com/drekka/Machinus.svg?branch=master)](https://travis-ci.com/drekka/Machinus)
+# Machinus V3
+
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/drekka/Machinus/graphs/commit-activity)
+[![GitHub license](https://img.shields.io/github/license/drekka/Machinus.svg)](https://github.com/drekka/Machinus/blob/master/LICENSE)
+[![GitHub tag](https://img.shields.io/github/tag/drekka/Machinus.svg)](https://GitHub.com/drekka/Machinus/tags/)
+
+A powerful yet easy to use state machine for iOS/tvOS/MacOS. 
 
 ## Quick feature list
 
 * Asynchronous thread safe transitions.
-* Closures for attaching functionality to transitions.
-* Barrier closures that can deny, redirect or fail a transition.
-* Closure based dynamic transitions.
-* App background tracking with a custom state.
-* Combine publishing of state changes.
+* Transition hooks.
+* Transition barriers that can deny, redirect or fail a transition.
+* Dynamic transitions.
+* iOS/tvOS app background state tracking.
+* Combine and async/await friendly code.
 * Optional notifications of state changes.
-* settable execution dispatch queue.
-* Builder syntax.
 
 ## Index
 
-* [Quick guide](#quick-guide)
-* [State configurations](#state-configurations)
-    * [didEnter](#didenter)
-    * [didExit](#didexit)
-    * [Dynamic transitions](#dynamic-transitions)
-    * [Transition barriers](#transition-barriers)
-    * [Allowed transitions](#allowed-tansitions)
-* [The state machine](#the-state-machine)
-    * [Options](#options)
-    * [Checking the engine's state](#checking-the-engines-state)
-* [Transitions](#transitions)
-    * [Manual transitions](#manual-transitions)
-    * [Dynamic transitions](#dynamic-transitions)
-    * [Background transitions](#background-transitions)
-    * [Transition errors](#transition-errors)
-    * [Listening to transition notifications](#listening-to-transition-notifications)
-    * [Subscribing to transitions with Combine](#subscribing-to-transitions-with-combine)
- * [Resetting the engine](#resetting-the-engine)
- * [FAQ](#faq)
-    * [Why does Machinus execute transitions asynchronously?](#why-does-machinus-execute-transitions-asynchronously)
-
 # What is a state machine?
 
-In complex code bases there is often a need to manage a number of states that something can be in. For example a user can have a variety of states - _'Registered'_, _'logged out'_, _'logged in'_,  _'inactive'_,  _'pending'_ and _'banned'_. These could manage with booleans or an enum, but you'd still need a lot of _if-then-else_ and _switch_ statements throughout your code and as we know, that can easily become an unmaintainable mess that's almost impossible to understand, debug or develop. 
+In some code bases objects can exist in a number of states. For example, a user can be _'Registered'_, _'logged out'_, _'logged in'_,  _'inactive'_,  _'pending'_, _'banned'_, _'timed out'_ and more. It's possible to manage state using booleans, enums, `if-then-else`'s, `switch`'s and all sorts of other code but over time that can become unmanagable, especially in large code bases where there are a lot of developers and complex processing. That complexity sucking large amounts of time and effort to understand, debugg an extend. 
 
-State machine can help marshal these situations by managing the states of something and automatically running the correct code when a state changes. In addition they can also define a "map" of valid state changes and provide other useful functionality. Done right, a state machine can dramatically simplify your code.
+This is where state machines are often a good solution to the complexity problem. They can marshal object state, automatically run code when that state changes, define what is a valid state change and what is not, and provide other attached functionality. 
+
+Done right, state machines can address state based complexity and as a result, dramatically simplify code.
 
 # Machinus?
 
-Yes it's a state machine and I wrote it. But if you look around [Github](https://www.github.com) you'll find plenty of state machine implementations. So why did I bother writing another? 
+[Github](https://www.github.com) already has a number of state machine projects so why did I bother writing another? Because I didn't find a single Swift based one that had all the features I wanted. 
 
-Simply put - Because I didn't find a single one that had all the features I wanted, and ... because I could. 
+Essentially the projects I looked fell into two camps. Either defining an object's state using structs or classes, or defining it using an enum. 
 
-All the state machine implementations I found on Github fell into two broad categories, those that define their states using classes, and those that define them using enums. The enum based machines tended to be simpler to use because performing state changes was just a matter of passing an enum value. However they also tended to have less functionality because everything was attached to the enums. Class based machines generally had more functionality because you can do more with a class, but you had to keep references to the states you'd setup in order to pas them to the machine when you needed a state change.
+The enum based machines tended to be simpler and easier to work because everything was attached to the enum that defined the object state. But the trade off was limited functionality, often because of the limitations of enums. Struct/class based machines generally had the functionality, but their trade off was the implied complexity on the calling code to track the state objects in order to request state changes.
 
-With Machinus I wanted the best of both worlds so I decided to use a protocol that would define what represented a state. Generally this would be applied to enums but it could be applied to anything. To configure the machine I then use these state identifiers to create a set of state configurations containing the associated functionality for each state. After that all I need is the state identifiers to talk to the machine, thus I've got usability of enums and the flexibility of classes. Add in features like app background tracking and other unique features and (IMHO) Machinus is the best state machine out there.
+With Machinus I decided to take a different approach. It defines a state using a simple protocol which can then be applied to anything to make it a state. Although generally, I'd recommend an enum for simplicity. Then when configuring the machine, these states are combined with a struct that defined the attached functionality, thus Machinus get's the benefits of both approaches to building state machines. Add in app background tracking (in iOS) and other unique features and (IMHO) Machinus is the best state machine available. But I might be biased :-)
 
 # Quick guide
 
-Let's look at using Machinus in 4 easy steps.
+So let's look at using Machinus in 4 easy steps.
 
 ## 1. Installing
 
-### [Carthage](https://github.com/Carthage/Carthage)
-
-Add this to your `Cartfile`:
-
-```
-github "drekka/Machinus"
-```
-
-### Swift package manager
-
-Search using the url [https://github.com/drekka/Machinus](https://github.com/drekka/Machinus) in package search.
-
-### CocoaPods
-
-I know it's controversial, but I don't recommend CocoaPods because I don't like how it works and what it does to an Xcode project.
+Machinus (V3) is supplied as a Swift Package Manager framework. So just search using the url [https://github.com/drekka/Machinus](https://github.com/drekka/Machinus) in Xcode's SPM package search.
 
 ## 2. Declare the states
 
-States are declared by applying the `StateIdentifier` protocol. Generally (and I'd recommend this) the easiest usage is to apply it to an enum. 
+States are declared by applying the `StateIdentifier` protocol. Generally (and I'd recommend this) it's easiest to use an enum. 
 
 ```swift
 enum UserState: StateIdentifier {
@@ -85,51 +54,54 @@ enum UserState: StateIdentifier {
     case registering
     case loggedIn
     case loggedOut
+    case background
 }
 ```
 
-In the above example Swift will generate the `Hashable` and `Equatable` syntactical sugar needed. 
+If you are using associated values you will also need to implement `Hashable`. Otherwise Swift will automatically synthesise it.
 
 ## 3. Create the states and machine
 
-Now we can create the state configurations and setup the machine.  The `StateConfig<T>` class is the key. `<T>` of course, being the previously created `StateIdentifier` type.
+Now we can setup and configure the machine.  `StateConfig<S>` instances are used to add any functionality you want to execute on a state change as well as to define what is a valid transition. `<S>` being the previously created `StateIdentifier` type.
 
 ```swift
-let machine = StateMachine {
+let machine = try await StateMachine {
 
-                  StateConfig<MyState>(.initialising,
-                                       didEnter: { _ in reloadConfiguration() },
-                                       canTransitionTo: .loggedOut)
+    StateConfig<UserState>(.initialising,
+                           didEnter: { _, _, _ in reloadConfiguration() },
+                           canTransitionTo: .loggedOut)
                                     
-                  StateConfig<MyState>(.loggedOut, 
-                                       didEnter: { _ in displayLoginScreen() },
-                                       didExit: { _ in hideLoginScreen() },
-                                       canTransitionTo: .loggedIn, registering)
+    StateConfig<UserState>(.loggedOut, 
+                           didEnter: { _, _, _ in displayLoginScreen() },
+                           didExit: { _, _, _ in hideLoginScreen() },
+                           canTransitionTo: .loggedIn, registering)
 
-                  StateConfig<MyState>(.loggedIn,
-                                       didEnter: { _ in displayUsersHomeScreen() },
-                                       transitionBarrier {
-                                           return userIsLoggedIn() ? .allow : .redirect(to: .loggedOut)
-                                       },
-                                       canTransitionTo: .loggedOut)
+    StateConfig<UserState>(.loggedIn,
+                           didEnter: { _, _, _ in displayUsersHomeScreen() },
+                           transitionBarrier: {
+                               return userIsLoggedIn() ? .allow : .redirect(to: .loggedOut)
+                           },
+                           canTransitionTo: .loggedOut)
 
-                  StateConfig<MyState>(.registering, 
-                                       didEnter: { _ in displayRegistrationScreen() },
-                                       dynamicTransition: {
-                                           return registered() ? .loggedIn : .loggedOut
-                                       },
-                                       canTransitionTo: .loggedOut, .loggedIn)
+    StateConfig<UserState>(.registering, 
+                           didEnter: { _, _, _ in displayRegistrationScreen() },
+                           dynamicTransition: {
+                               return registered() ? .loggedIn : .loggedOut
+                           },
+                           canTransitionTo: .loggedOut, .loggedIn)
 
-                  StateConfig<MyState>.background(.background,
-                                                 didEnter: { _ in displayPrivacyScreen() },
-                                                 didExit: { _ in hidePrivacyScreen() })
-              }
+    StateConfig<UserState>.background(.background,
+                                      didEnter: { _, _, _ in displayPrivacyScreen() },
+                                      didExit: { _, _, _ in hidePrivacyScreen() })
+    }
 ```
 
-After this piece of code the `StateConfig<T>` instances are no longer needed because from here on we use the `StateIdentifer` to talk to the machine. Machinus also starts in the first state listed, so …
+After this the `StateConfig<T>` instances are no longer needed because state change requests are enacted passing the state identifiers. 
+
+Also note that Machinus automatically starts in the first state listed, so …
 
 ```swift
-machine.state == .initialising // -> true
+await machine.state == .initialising // -> true
 ```
 
 ## 4. Transition
@@ -137,174 +109,134 @@ machine.state == .initialising // -> true
 Now the state machine's setup lets ask it to transition to a different state.
 
 ```swift
-machine.transition(to: .loggedOut)
+try await machine.transition(to: .loggedOut)
 ```
 
 This will trigger a sequence of events:
 
 1. The machine will change to the `.loggedOut` state.
-1. The `.loggedOut` state's `didEnter` closures to be executed and call `displayLoginScreen()`.
+1. The `.loggedOut` state's `didEnter` closure will be executed to call `displayLoginScreen()`.
 
 _And … Ta da! We've just used a state machine!_
 
-# State configurations
+# States
 
-States are configured using the **`StateCofig<T>`** class. `<T>` being a type that implements `StateIdentifier`. Most states are created using the **`StateConfig<T>.init(…)`** initialiser which takes a range of arguments defining how the state is configured.
+States are configured using the **`StateCofig<S>`** class. `<S>` being anything that implements the `StateIdentifier` protocol. Most are created using the **`StateConfig<T>.init(…)`** initialiser which takes the **`StateIdentifier`** for the state and a range of optional arguments to define it's behaviour.
+
+## Simple states
+
+The base type of state, a simple state has optional closures to execute when the machine enters or leaves the state, to deny a transition and another that can dynamically decide what the next state to transition to is.   
 
 ```swift
 // StateConfig with the works!
-Let config = StateConfig<MyState>(.loggedIn,
-                                  didEnter: { previous in … },
-                                  didExit: { next in … },
-                                  dynamicTransition: { … },
-                                  transitionBarrier: { … },
-                                  canTransitionTo: …) {
-
+Let loggedIn = StateConfig<MyState>(.loggedIn,
+                                     didEnter: { machine, fromState, toState in … },
+                                     didExit: { machine, fromState, toState in … },
+                                     dynamicTransition: { machine in … },
+                                     transitionBarrier: { machine in … },
+                                     canTransitionTo: state1, state2, state3, …) {
 ```
-
-In addition to the default init there is also some specialised factory methods that create some more specialised configurations:
-
-* **`StateConfig<T>.global(…)`** - Creates a **Global** states that does not need to appear in state `canTransitionTo` lists. Essentially any state can transition to a global state. The only exception being final states.
-
-* **`StateConfig<T>.final(…)`** - Final states cannot be left once entered. For example you might want a state for when the app hits an error that cannot be recovered from. Final state's don't need allowed transition lists, dynamic transition or `didExit` closures.
-
-* **`StateConfig<T>.finalGlobal(…)`** - Final global states are effective globals that cannot be exited from. They have the same arguments and limitations as a final.
-
-* **`StateConfig<T>.background(…)`** - The presence of a background state tells the machine to start watching the app's state. When the app goes into the background, the machine automatically transitions to the background state no matter what state it's currently in and inversely when the app comes back to the foreground, the machine transitions back to the prior state. Background states don't need `canTransitionTo` lists, `transitionBarriers` or `dynamicTransition` closures and there can only be one in the machine's states.
-
-## Arguments
-
-The `StateConfig<T>` initialiser and factory functions take a variety of arguments:
-
 * The **State identifier**
-* The state's **`didEnter`** closure that is executed when the machine transitions to this state.
-* The state's **`didExit`** closure that is executed after the machine exits the state. 
-* A **`dynamicTransition`** closure which can be executed to generate the next state for the machine.
-* A **`transitionBarrier`** closure that's called when the machine enters the state. A barrier can **allow**, **deny** it or **redirect** the transition to a different state.
-* **`canTransitionTo`** is a list of states that this state is allowed to transition to. If a transition to any other state is requested an error will be returned instead.
+* **`didEnter`** - Executed when the machine transitions to this state.
+* **`didExit`** - Executed when the machine leaves this state. 
+* **`dynamicTransition`** - When requested, called to decide what the next state of the machine will be.
+* **`transitionBarrier`** - Called before a transition to decide if it's ok to transition to this state. A barrier can return one of 3 responses:
+    * **`.allow`** - Allow the requested transition to occur.
+    * **`.redirect(to:S)`** - Redirects to another state.
+    * **`.fail`** - Fails the transition with a `StateMachineError.transitionDenied` error.
+* **`canTransitionTo`** A list of states that can be transitioned to. If a transition to a state not in this list is requested, a `StateMachineError.illegialTransition` error will be thrown.
 
-The only required parameter to setup a state is it's identifier. However you usually want something to happen when that state is entered and you also usually want to be able to change from that state to another. So there are a variety of arguments that you can pass to a  state configuration.
+## Global states
 
-## didEnter
-
-Executed after the machine has successfully transitioned to a new state, the `didEnter` closure on the new state is passed the previous state of the machine so it can be referenced if necessary.
+Any state can transition to a global state without it being in their `canTransitionTo` list. The only exception to this are final state's which cannot be left and therefore cannot transition to a global state.
 
 ```swift
-BackgroundStateConfig<MyState>(.background, didEnter: { previousState in
-                                                          displayPrivacyScreen() 
-                                                      })
+Let timeout = StateConfig<MyState>.global(.timeout,
+                                          didEnter: { machine, fromState, toState in … },
+                                          didExit: { machine, fromState, toState in … },
+                                          dynamicTransition: { machine in … },
+                                          transitionBarrier: { machine in … },
+                                          canTransitionTo: state1, state2, state3, …)
 ```
 
-## didExit
+## Final states
 
-Executed after the machine has successfully transitioned to a new state, the `didEnter` closure on the old state is passed the next state of the machine so it can be referenced if necessary.
+Final states cannot be left once entered. For example you might use a state when the app hits an error that cannot be recovered from. Final state's don't need `canTransitionTo` lists, `dynamicTransition` or `didExit` closures because the machine can never leave them.
 
 ```swift
-BackgroundStateConfig<MyState>(.background, didExit: { nextState in
-                                                         removePrivacyScreen() 
-                                                     })
+Let configLoadFailure = StateConfig<MyState>.final(.configLoadFailure,
+                                                   didEnter: { machine, fromState, toState in … },
+                                                   transitionBarrier: { machine in … })
 ```
 
-## Dynamic transitions
+## Final global states
 
-`dynamicTransition` closures are executed when a transition is requested without a state argument. When that occurs the current state's `dynamicTransition` closure is executed to get the next state. 
+Final and global, a combination of both.
 
 ```swift
-StateConfig<MyState>(.registering, 
-                     dynamicTransition: {
-                         return registered() ? .loggedIn : .loggedOut
-                     },
-                     canTransitionTo: .loggedOut, .loggedIn)
+Let unrecoverableError = StateConfig<MyState>.final(.majorError,
+                                                    didEnter: { machine, fromState, toState in … },
+                                                    transitionBarrier: { machine in … })
 ```
 
-When `transition()` is called the `.registering` state's dynamic transition closure is then executed to obtain the next state to transition to.
+## The background state (iOS/tvOS only)
 
-## Transition barriers
+If iOS if you add a background state to the machine then the machine will automatically watch the app's foreground/background state. When it goes into the background, a transition to the background state will automatically be made no matter what state it's currently in. Then inversely, when the app comes back to the foreground, the machine will automatically transition back to the state it was prior to being backgrounded. 
 
-Sometimes there is logic that might want to bar a transition to a state. It could be added around the engine, but it would be easier if the engine could take care of this and that is what a transition barrier does. Basically if a state has a transition barrier, any transition to it executes the barrier closure to decide if the transition should be allowed. 
+Background state processing invokes some unique processing that other states don't do. They don't need `canTransitionTo` lists, `transitionBarriers` or `dynamicTransition` closures as none of these are called during the transition. Nor are other state's `didExit` or `didEnter` closures called. The thought behind this is that background transitions can effectively occur at any time and from any state and should return to that state when the app is foregrounded again. Machinus effectively acting as if the app never left the original state. However the execution of the background state's `didEnter` and `didExit` give you the opportunity to do things like put up privacy screens.
 
-```swift
-Let StateConfig<MyState>(.loggedIn, 
-                     transitionBarrier {
-                         return userIsLoggedIn() ? .allow : .redirect(to: .loggedOut)
-                     },
-                     canTransitionTo: .loggedOut)
-```
-
-In this case, if a request to transition to `.loggedIn` is received, the barrier is executed. If the user is logged in then the transition is allowed, if not then the machine is asked to redirect to the `.loggedOut` state.
-
-Transition barrier's can return one of 3 responses:
-
-* **`.allow`** - Allow the transition to occur.
-* **`.redirect(to:T)`** - Redirect to a different state.
-* **`.fail`** - Fail the transition with a `StateMachineError.transitionDenied` error.
-
-## Allowed transitions
-
-Except for final and background states, if you want to be able to transition to another state you have need to specify the `canTransitionTo` argument with a list of the valid states that can be transitioned to.
+*Also note that trying to register more than one background state will throw an error.*
 
 ```swift
-StateConfig<MyState>(.loggedOut, canTransitionTo: .loggedIn, registering)
+Let background = StateConfig<MyState>.background(.background,
+                                                 didEnter: { machine, fromState, toState in … },
+                                                 didExit: { machine, fromState, toState in … })
 ```
 
 # The state machine
 
-Declaring the machine can be done in several ways.
-
 ```swift
-// Old school.
-let machine = StateMachine(name: "User state machine", didTransition: { from, to in … },
-                           withStates: 
-                               StateConfig<MyState>(.initialising… ),
-                               StateConfig<MyState>(.registering… ),
-                               StateConfig<MyState>(.loggedIn… ),
-                               StateConfig<MyState>(.loggedOut… )
-                           )
-
-// Multi-closure Builder style
-let machine = StateMachine(name: "User state machine") { from, to in … }
-                           withStates {
-                               StateConfig<MyState>(.initialising… )
-                               StateConfig<MyState>(.registering… )
-                               StateConfig<MyState>(.loggedIn… )
-                               StateConfig<MyState>(.loggedOut… )
+let machine = StateMachine(name: "User state machine") { machine, fromState, toState in … }
+                           withStates: {
+                               StateConfig<MyState>(.initialising, … )
+                               StateConfig<MyState>(.registering, … )
+                               StateConfig<MyState>(.loggedIn, … )
+                               StateConfig<MyState>(.loggedOut, … )
                            }
 ```
 
-The optional `name` argument can be used to uniquely identify the state machine in logs and debug sessions. If you don't pass it, a UUID appended with the type of the state identifier is used.
+The optional **`name`** argument is used to uniquely identify the state machine in logs and debug sessions. If you don't pass it, a UUID appended with the type of the state identifier is used. This is purely to support debugging when multiple state machines are in play.
 
-The `didTransition` closure is also optional and if passed,  is called after each transition.
+The optional **`didTransition`** closure is called after each transition.
+
+After that comes a list of the states for the machine which you can list using a builder style (AKA SwiftUI).
 
 _Note: Machinus requires at least 3 states. This is simple logic. A state machine is useless with only 1 or two states. So the initialiser will fail with anything less than 3._ 
 
-## Options
+## Properties
 
-In addition to the initialiser arguments there are several properties that can be set.
+The core `StateMachine<S>` class has some additional properties available:
 
-* `postNotifications: Bool` - Defaults to false. When true, every time a transition is successful a matching notification is posted. This allows code that is far away from the machine to still see what it's doing. *See [Listening to transition notifications](#listening-to-transition-notifications).*
+* **`postNotifications: Bool`** - Defaults to false. When true, every time a transition is successful a matching notification is posted. This allows code that is far away from the machine to still see what it's doing. *See [Listening to transition notifications](#listening-to-transition-notifications).*
 
-* `transitionQueue: DispatchQueue` - Defaults to `DispatchQueue.main`. State transitions are dispatched onto this queue.
-
-## Checking the engine's state
-
-Machinus also has a `state` property which returns the current state of the machine. Because states implement `StateIdentifier` which is an extension of `Hashable` and `Equatable` they are easily comparable states using standard operators.
+* **`state: S async`** - Returns the current state of the machine. Because states implement `StateIdentifier` which is an extension of `Hashable` they are easily comparable using standard operators.
 
 ```swift
-machine.state == .initialising // = true
+await machine.state == .initialising // = true
 ```
 
 # Transitions
 
 A '**Transition**' is the process of changing from one state to another. It sounds simple, but it's actually a little more complicated than you might think.
 
-All transitions are queued asynchronously on the `transitionQueue`. The reason for this is that by queuing transitions, we allow for the code in one of the executed closures to trigger another transition without trying to nest it inside the current transition.
+All transitions are queued asynchronously. This is done so that the machine can fully process each transition with any closures it might have before moving on to the next transition. This also allows for the odd situation where a closure on a state might trigger another state change request.
 
 ## Manual transitions
 
-Manual transitions are the simplest to understand. You request the transition passing the desired state as an argument. 
+Manual transitions are the simplest to understand. You simply request the state you would like the machine to transition to like this: 
 
 ```swift
-machine.transition(to: .registering) { result in
+await machine.transition(to: .registering) { machine, result in
     if let Result.failure(let error) = result {
         // Handle the error
         return
@@ -313,33 +245,36 @@ machine.transition(to: .registering) { result in
 }
 ```
 
-If the transition is successful the completion closure is called with the previous state of the machine. If an error occurred, a failure is returned with the error that generated it.
+Where **`machine`** is a reference to the machine and **`result`** is a `Result<(_ from: <S>, _ to: <S>), StateMachineError>` where `S: StateIdentifier`.
+
+Note that the transition is not executed directly, but queued for execution. This is to ensure that a state `didEnter` or `didExit` or even the engines own `didTransition` closure can request another transition without interfering with the transition being executed. 
 
 ### Transition execution
 
-A transition is composed of a sequence of events:
+When you request a transition the machine follows these steps:
 
-1. The transition is queued on the queue referenced by the `transitionQueue` property.
-1. Upon execution, pre-flighting is done to check the transition. Pre-flight can fail for any of these reasons:
-    * The new state is not a known state. Generates a `fatalError()`.
-    * The new state is not global or in the list of allowed transitions of the current state. Returns a `.illegalTransition` error.
-    * The new state's transition barrier denies the transition. Returns a `.transitionDenied` error.
-    * The new state and the old state are the same. Returns an `.alreadyInState` error.
-1. If the pre-flight returned an error, it is returned as the result of the transition.
-1. Otherwise the transition is executed:
+1. The transition is queued for execution.
+2. If there is no transition already in flight, the engine picks up the next transition from the queue.
+3. The transition is pre-flighted. This can fail the transition for a number of reasons including:
+    * The new state is not a known state. Throws `StateMachineError.unknownState(S)`.
+    * Unless a global state, the requested state does not exist in the list of allowed transitions of the current state. Throws `StateMachineError.illegalTransition`.
+    * The new state's transition barrier denies the transition. Throws a `StateMachineError.transitionDenied`.
+    * The new state and the old state are the same. Throws a `StateMachineError.alreadyInState`.
+4. Once pre-flight is passed, the machine executes the transition:
     1. The state is changed.
-    1. The old state's `didExit` closure is called passing the new state.
-    1. The new state's `didEnter` closure is called passing the old state.
-    1. The machine's `didTransition` closure is called, passing the old and new states.
-    1. The state change notification is sent if `postNotifications` is true.
-1. The transition request completion closure is called with the previous state as a result.
+    2. The old state's `didExit` closure is called passing the machine and new state.
+    3. The new state's `didEnter` closure is called passing the machine and old state.
+    4. The machine's `didTransition` closure is called, passing the machine and old state.
+    5. If `postNotifications` is true, a state change notification is sent.
+5. The transition request's completion closure is called with the previous state as a result.
 
 ## Dynamic transitions
 
-Dynamic transitions are exactly the same as a manual transition except that prior to running the core transition above, the `dynamicTransition` closure is executed to obtain the the state to transition too.
+Dynamic transitions are processed exactly the same as a manual transition except for one thing. Prior to running the transition, the current state's `dynamicTransition` closure is executed to obtain the the state to transition too.
+
+For example:
 
 ```swift
-
 let machine = StateMachine {
                   StateConfig<MyState>(.registering, 
                                        dynamicTransition: {
@@ -350,79 +285,80 @@ let machine = StateMachine {
                   StateConfig<MyState>(.loggedIn, canTransitionTo: .loggedOut)
               }
 
-machine.transition { result in /* … */ }
+machine.transition { machine, result in /* … */ }
 ```
 
-The call to execute a transition is even the same, except for the lack of the `to:` state argument. The lack of that argument is what tells Machinus to execute the dynamic transition closure. If there's no closure set on the current state, a `fatalError(…)` will be triggered because the developer as obviously miss-configured the machine. 
+The call to execute a transition is the same except that there is no `to` state argument. The lack of that argument tells the machine to look for a dynamic closure and obtain the next state from it.
 
-## Background transitions
+If there's no dynamic closure on the current state, the machine will return a `StateMachineError.noDynamicClosure(S)` error to indicate a dynamic was expected. 
 
-Background transitions are special cases because they are not considered part of the normal state map. Sure you can request a transition to a background state just like transitioning to any other state, but when the machine triggers it in response to the apps state charging it runs an entirely different set of transition events.
+## Background transitions (iOS & tvOS)
 
-### Transitioning to the background
+Background transitions are special cases because they are not considered part of the normal state map. Sure you can request a transition to a background state just like transitioning to any other state, and it will be run through the same process. However if the transition to background is triggered by the app being sent to the background it runs an entirely different process.
 
-1. The background transition is queued on the queue referenced by the `transitionQueue` property.
-1. Upon execution, the current state is stored as the state to restore to.
-1. The state is changed to the background state.
-1. The background state's `didEnter` closure is called passing the restore state as the previous state.
+### Going into the background
 
-### Transitioning to the foreground
+1. The background transition is queued. 
+2. The current state is stored as the state to restore to.
+3. The state is changed to the background state.
+4. The background state's `didEnter` closure is called.
+5. The machine is told to suspend processing until a foreground transition is requested. If any subsequence transition requests are received, they are queued.
 
-Foreground transitions are also special in that they are not considered part of the normal state map. They run this set of events.
+### Returning to the foreground
 
-1. The foreground transition is queued on the queue referenced by the `transitionQueue` property.
-1. Upon execution, the restore state's configuration is retrieved.
-1. If the state has a `transitionBarrier` it's executed, and if the result is `.redirect(to:)`, then the restore state is updated to be the redirect state.
-1. The state is then changed to the restore state.
-1. The background state's `didExit` closure is called passing the restore state.
+Foreground transitions revert the background process.
 
-## Transition errors
-
-Transitions can return the following `MachinusError` errors:
-
-* **.alreadyInState** - Returned if a state change is requested, the requested state is the same as the current state and the `enableSameStateError` flag is set.
-
-* **.transitionDenied** - Returned when a transition barrier rejects a transition.
-
-* **.illegalTransition** - Returned when the target state is not in the current state's allowed transition list.
-
-* **finalState** - Returned if the machine is currently in a final state.
+1. The foreground transition is queued as the next transition to execute.
+2. The machine is told to resume transition processing.
+3. If the restore state has a `transitionBarrier` it is executed, and if the result is `.redirect(to:)`, then that state is used as the restore state.
+5. The state is changed to the restore state.
+6. The background state's `didExit` closure is called.
 
 ## Subscribing to transitions with Combine
 
-Machinus is Combine aware with the machine being a Combine `Publisher`. Here's an example of listening to state changes.
+Machinus is Combine aware with the machine publishing state changes. Here's an example of listening to state changes.
 
 ```swift
-machine.sink { newState in
-                print("Received " + String(describing: newState))
-                 switch newState {
-                      case .loggedIn:
-                           displayUsersHomeScreen()
-                      case .loggedOut:
-                           displayLoginScreen()
-                      case .Registering:
-                           displayRegisterUserScreen()
-                 }
-             }
+machine.statePublisher.sink { newState in
+    print("Received \(newState)")
+    switch newState {
+    case .loggedIn:
+        displayUsersHomeScreen()
+    case .loggedOut:
+        displayLoginScreen()
+    case .Registering:
+        displayRegisterUserScreen()
+    }
+}
 ```
 
-Note that on subscription, Machinus will immediately send the current state value so your code knows what it is.
+Note that on subscription, Machinus will immediately send the current state so your code knows what it is.
+
+## Using `AsyncSequence` to watch transitions
+
+In keeping with Swift's async/await there is an `AynsSequence` property that can be accessed to receive state changes.
+
+```swift
+for await state in machine.stateSequence {
+    print("Received \(newState)")
+    switch newState {
+    case .loggedIn:
+        displayUsersHomeScreen()
+    case .loggedOut:
+        displayLoginScreen()
+    case .Registering:
+         displayRegisterUserScreen()
+     }
+}
+```
+
 
 # Resetting the engine
 
 Resetting the state machine is quite simple. `.reset()` will hard reset the engine back to the 1st state in the list. It does not execute any actions or rules as it's a hard reset.
 
 ```swift
-machine.reset()
+await machine.reset { machine in ... }
 ```
 
 *Note: `reset()` is the only way to exit a final state. Although that's generally not something that you would want to do and suggests that your final state is not really final.*
- 
-# FAQ
-## Is Machinus thread safe?
-
-I believe so although I'm not sure how to definitively say. When Machinus executes a transition it sets a `NSLock` so that only one thread can execute the core transition code at one time. Only upon exiting a transition is the lock unlocked.
-
-## Why does Machinus execute transitions asynchronously?
-
-Originally I wanted Machinus to be synchronous, then I realised that driving things asynchronously was easier to write. Especially when you consider the risk of a `did…` closure triggering another state changes. In that nested state change scenario, synchronous execution becomes very difficult to manage and asynchronous queuing makes things simpler.
