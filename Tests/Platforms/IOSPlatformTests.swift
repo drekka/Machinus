@@ -11,35 +11,33 @@ import XCTest
     class IOSPlatformTests: XCTestCase {
 
         private var log: LogActor!
-        private var machine: (any Machine<TestState>)!
+        private var machine: (any Transitionable<TestState>)!
 
         override func setUp() async throws {
 
             try await super.setUp()
 
             log = LogActor()
-            machine = try await StateMachine { _, from, to in
+            machine = try await StateMachine { from, to in
                 await self.log.append("\(from) -> \(to)")
             }
             withStates: {
                 StateConfig<TestState>(.aaa,
-                                       didEnter: { _, _, _ in await self.log.append("aaaEnter") },
-                                       didExit: { _, _, _ in await self.log.append("aaaExit") },
+                                       didEnter: { _, _ in await self.log.append("aaaEnter") },
+                                       didExit: { _, _ in await self.log.append("aaaExit") },
                                        canTransitionTo: .bbb, .ccc)
                 StateConfig<TestState>(.bbb,
-                                       didEnter: { _, _, _ in await self.log.append("bbbEnter") },
-                                       didExit: { _, _, _ in await self.log.append("bbbExit") },
+                                       didEnter: { _, _ in await self.log.append("bbbEnter") },
+                                       didExit: { _, _ in await self.log.append("bbbExit") },
                                        canTransitionTo: .ccc)
                 StateConfig<TestState>(.ccc,
-                                       didEnter: { _, _, _ in await self.log.append("cccEnter") },
-                                       didExit: { _, _, _ in await self.log.append("cccExit") },
-                                       transitionBarrier: { machine in
-                                           await machine.state == .aaa ? .allow : .redirect(to: .aaa)
-                                       },
+                                       didEnter: { _, _ in await self.log.append("cccEnter") },
+                                       didExit: { _, _ in await self.log.append("cccExit") },
+                                       transitionBarrier: { $0 == .aaa ? .allow : .redirect(to: .aaa) },
                                        canTransitionTo: .aaa)
                 StateConfig<TestState>.background(.background,
-                                                  didEnter: { _, _, _ in await self.log.append("backgroundEnter") },
-                                                  didExit: { _, _, _ in await self.log.append("backgroundExit") })
+                                                  didEnter: { _, _ in await self.log.append("backgroundEnter") },
+                                                  didExit: { _, _ in await self.log.append("backgroundExit") })
             }
         }
 
@@ -62,7 +60,7 @@ import XCTest
 
         func testMachineGoesIntoBackground() async throws {
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-            await waitFor(await machine.state == .background)
+            await machine.waitFor(state: .background)
             await expect({ await self.log.entries }) == ["backgroundEnter", "aaa -> background"]
         }
 
@@ -70,12 +68,12 @@ import XCTest
 
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
 
-            await waitFor(await machine.state == .background)
+            await machine.waitFor(state: .background)
             await expect({ await self.log.entries }) == ["backgroundEnter", "aaa -> background"]
 
             await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
 
-            await waitFor(await machine.state == .aaa)
+            await machine.waitFor(state: .aaa)
             await expect({ await self.log.entries }) == ["backgroundEnter", "aaa -> background", "backgroundExit", "background -> aaa"]
         }
 
@@ -87,39 +85,20 @@ import XCTest
             log = LogActor()
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
 
-            await waitFor(await machine.state == .background)
+            await machine.waitFor(state: .background)
             await expect({ await self.log.entries }) == ["backgroundEnter", "ccc -> background"]
 
             await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
 
             /// Returns to bbb but redirects to aaa
-            await waitFor(await machine.state == .aaa)
+            await machine.waitFor(state: .aaa)
             await expect({ await self.log.entries }) == ["backgroundEnter", "ccc -> background", "backgroundExit", "background -> aaa"]
         }
 
-        func testMachineSuspendsTransitionsWhenInBackground() async throws {
-
+        func testSuspendedMachineThrows() async throws {
             await NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: self)
-
-            await waitFor(await machine.state == .background)
-            await expect({ await self.log.entries }) == ["backgroundEnter", "aaa -> background"]
-
-            // These should be queued.
-            await machine.transition(to: .bbb)
-
-            // Now return to the foreground.
-            await NotificationCenter.default.post(name: UIApplication.willEnterForegroundNotification, object: self)
-
-            await waitFor(await machine.state == .bbb)
-            await expect({ await self.log.entries }) == [
-                "backgroundEnter",
-                "aaa -> background",
-                "backgroundExit",
-                "background -> aaa",
-                "aaaExit",
-                "bbbEnter",
-                "aaa -> bbb",
-            ]
+            await machine.waitFor(state: .background)
+            await machine.testTransition(to: .bbb, failsWith: .suspended)
         }
     }
 #endif

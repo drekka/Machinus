@@ -68,31 +68,31 @@ Now we can setup and configure the machine.  `StateConfig<S>` instances are used
 let machine = try await StateMachine {
 
     StateConfig<UserState>(.initialising,
-                           didEnter: { _, _, _ in reloadConfiguration() },
+                           didEnter: { _, _ in reloadConfiguration() },
                            canTransitionTo: .loggedOut)
                                     
     StateConfig<UserState>(.loggedOut, 
-                           didEnter: { _, _, _ in displayLoginScreen() },
-                           didExit: { _, _, _ in hideLoginScreen() },
+                           didEnter: { _, _ in displayLoginScreen() },
+                           didExit: { _, _ in hideLoginScreen() },
                            canTransitionTo: .loggedIn, registering)
 
     StateConfig<UserState>(.loggedIn,
-                           didEnter: { _, _, _ in displayUsersHomeScreen() },
+                           didEnter: { _, _ in displayUsersHomeScreen() },
                            transitionBarrier: {
                                return userIsLoggedIn() ? .allow : .redirect(to: .loggedOut)
                            },
                            canTransitionTo: .loggedOut)
 
     StateConfig<UserState>(.registering, 
-                           didEnter: { _, _, _ in displayRegistrationScreen() },
+                           didEnter: { _, _ in displayRegistrationScreen() },
                            dynamicTransition: {
                                return registered() ? .loggedIn : .loggedOut
                            },
                            canTransitionTo: .loggedOut, .loggedIn)
 
     StateConfig<UserState>.background(.background,
-                                      didEnter: { _, _, _ in displayPrivacyScreen() },
-                                      didExit: { _, _, _ in hidePrivacyScreen() })
+                                      didEnter: { _, _ in displayPrivacyScreen() },
+                                      didExit: { _, _ in hidePrivacyScreen() })
     }
 ```
 

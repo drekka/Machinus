@@ -158,41 +158,40 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
     /// Possible results of the transition pre-flight.
     enum PreflightResponse<S> where S: StateIdentifier {
         case allow
-        case fail(error: StateMachineError<S>)
         case redirect(to: S)
     }
 
-    func preflightTransition(toState: StateConfig<S>, inMachine machine: any Transitionable<S>) async -> PreflightResponse<S> {
+    func preflightTransition(toState: StateConfig<S>, inMachine machine: any Transitionable<S>) async throws -> PreflightResponse<S> {
 
         machine.logger.trace("Preflighting transition \(self) -> \(toState)")
 
         // If the state is the same state then do nothing.
         if toState == self {
             machine.logger.trace("Already in state \(self)")
-            return .fail(error: .alreadyInState)
+            throw StateMachineError<S>.alreadyInState
         }
 
         // Check for a final state transition
         if features.contains(.final) {
             machine.logger.error("Final state, cannot transition")
-            return .fail(error: .illegalTransition)
+            throw StateMachineError<S>.illegalTransition
         }
 
         /// Process the registered transition barrier.
         if let barrier = toState.transitionBarrier {
             machine.logger.trace("Executing transition barrier")
-            switch await barrier(machine) {
-            case .fail: return .fail(error: .transitionDenied)
+            switch await barrier(identifier) {
+            case .fail: throw StateMachineError<S>.transitionDenied
             case .redirect(to: let redirectState): return .redirect(to: redirectState)
             case .allow:
-                // Barrier passes so fall through to allowed transition test.
+                // Barrier passes so fall through to allowed transition check.
                 break
             }
         }
 
         guard allowedTransitions.contains(toState.identifier) || toState.features.contains(.global) else {
             machine.logger.trace("Illegal transition")
-            return .fail(error: .illegalTransition)
+            throw StateMachineError<S>.illegalTransition
         }
 
         return .allow

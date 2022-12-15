@@ -46,16 +46,16 @@ class StateMachineTests: XCTestCase {
 
         let machine = try await StateMachine {
             StateConfig<TestState>(.aaa,
-                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
+                                   didEnter: { _, _ in self.log.append("aaaEnter") },
                                    canTransitionTo: .bbb)
             StateConfig<TestState>(.bbb,
-                                   didEnter: { _, _, _ in self.log.append("bbbEnter") },
-                                   didExit: { _, _, _ in self.log.append("bbbExit") })
+                                   didEnter: { _, _ in self.log.append("bbbEnter") },
+                                   didExit: { _, _ in self.log.append("bbbExit") })
             StateConfig<TestState>(.ccc)
         }
 
         await machine.testTransition(to: .bbb)
-        await machine.testReset(to: .aaa)
+        await machine.testReset()
 
         expect(self.log) == ["bbbEnter", "aaaEnter"]
     }
@@ -73,7 +73,7 @@ class StateMachineTests: XCTestCase {
 
     func testTransitionClosureCalled() async throws {
 
-        let machine = try await StateMachine { _, from, to in
+        let machine = try await StateMachine { from, to in
             self.log.append("Did transition \(from) -> \(to)")
         }
         withStates: {
@@ -98,19 +98,19 @@ class StateMachineTests: XCTestCase {
 
     func testTransitionClosureSequencing() async throws {
 
-        let machine = try await StateMachine<TestState> { _, from, to in
+        let machine = try await StateMachine<TestState> { from, to in
             self.log.append("Did transition \(from) -> \(to)")
         }
         withStates: {
             StateConfig<TestState>(.aaa,
-                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
-                                   didExit: { _, _, _ in self.log.append("aaaExit") }, canTransitionTo: .bbb)
+                                   didEnter: { _, _ in self.log.append("aaaEnter") },
+                                   didExit: { _, _ in self.log.append("aaaExit") }, canTransitionTo: .bbb)
             StateConfig<TestState>(.bbb,
-                                   didEnter: { _, _, _ in self.log.append("bbbEnter") },
-                                   didExit: { _, _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
+                                   didEnter: { _, _ in self.log.append("bbbEnter") },
+                                   didExit: { _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
             StateConfig<TestState>(.ccc,
-                                   didEnter: { _, _, _ in self.log.append("cccEnter") },
-                                   didExit: { _, _, _ in self.log.append("cccExit") })
+                                   didEnter: { _, _ in self.log.append("cccEnter") },
+                                   didExit: { _, _ in self.log.append("cccExit") })
         }
 
         await machine.testTransition(to: .bbb)
@@ -120,44 +120,17 @@ class StateMachineTests: XCTestCase {
         expect(self.self.log) == ["aaaExit", "bbbEnter", "Did transition aaa -> bbb", "bbbExit", "cccEnter", "Did transition bbb -> ccc"]
     }
 
-    func testTransitionClosureSequencingWhenNestedStateChange() async throws {
-
-        let machine = try await StateMachine { _, from, to in
-            self.log.append("Did transition \(from) -> \(to)")
-        }
-        withStates: {
-            StateConfig<TestState>(.aaa,
-                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
-                                   didExit: { _, _, _ in self.log.append("aaaExit") },
-                                   canTransitionTo: .bbb)
-            StateConfig<TestState>(.bbb,
-                                   didEnter: { machine, _, _ in
-                                       self.log.append("bbbEnter")
-                                       await machine.transition(to: .ccc)
-                                   },
-                                   didExit: { _, _, _ in self.log.append("bbbExit") },
-                                   canTransitionTo: .ccc)
-            StateConfig<TestState>(.ccc,
-                                   didEnter: { _, _, _ in self.log.append("cccEnter") },
-                                   didExit: { _, _, _ in self.log.append("cccExit") })
-        }
-
-        await machine.transition(to: .bbb)
-        await waitFor(await machine.state == .ccc)
-        expect(self.log) == ["aaaExit", "bbbEnter", "Did transition aaa -> bbb", "bbbExit", "cccEnter", "Did transition bbb -> ccc"]
-    }
-
     // MARK: - Preflight failures
 
     func testTransitionToSameStateGeneratesErrorAndDoesntCallClosures() async throws {
 
         let machine = try await StateMachine {
             StateConfig<TestState>(.aaa,
-                                   didEnter: { _, _, _ in self.log.append("aaaEnter") },
-                                   didExit: { _, _, _ in self.log.append("aaaExit") }, canTransitionTo: .bbb)
+                                   didEnter: { _, _ in self.log.append("aaaEnter") },
+                                   didExit: { _, _ in self.log.append("aaaExit") }, canTransitionTo: .bbb)
             StateConfig<TestState>(.bbb,
-                                   didEnter: { _, _, _ in self.log.append("bbbEnter") },
-                                   didExit: { _, _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
+                                   didEnter: { _, _ in self.log.append("bbbEnter") },
+                                   didExit: { _, _ in self.log.append("bbbExit") }, canTransitionTo: .ccc)
             StateConfig<TestState>(.ccc)
         }
 
@@ -223,7 +196,7 @@ class StateMachineTests: XCTestCase {
 
     func testDynamicTransition() async throws {
         let machine = try await StateMachine {
-            StateConfig<TestState>(.aaa, dynamicTransition: { _ in .bbb }, canTransitionTo: .bbb)
+            StateConfig<TestState>(.aaa, dynamicTransition: { .bbb }, canTransitionTo: .bbb)
             StateConfig<TestState>(.bbb)
             StateConfig<TestState>(.ccc)
         }

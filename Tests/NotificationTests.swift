@@ -46,7 +46,7 @@ class NotificationTests: XCTestCase {
         }
 
         await machine.postNotifications(true)
-        await machine.transition(to: .bbb)
+        _ = try await machine.transition(to: .bbb)
 
         await expect(observedMachine).toEventuallyNot(beNil())
 
