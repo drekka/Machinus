@@ -9,6 +9,9 @@ public enum StateMachineError<S>: Error, Sendable where S:StateIdentifier {
     /// Thrown when there is an error configuring the machine.
     case configurationError(String)
 
+    /// Thrown if the machine is asked to transition when in a suspended state.
+    case suspended
+
     /// Thrown if a state change is requested to the current state.
     case alreadyInState
 
@@ -30,4 +33,5 @@ public enum StateMachineError<S>: Error, Sendable where S:StateIdentifier {
 
     /// Thrown if the machine detects and internal issue it cannot resolve.
     case integrityError(String)
+
 }

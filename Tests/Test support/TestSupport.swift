@@ -18,90 +18,75 @@ enum TestState: StateIdentifier {
     case global
 }
 
-extension Machine {
+extension Transitionable where S: Equatable {
 
-    func testReset(file: StaticString = #file, line: UInt = #line,
-                   to desiredState: S) async {
-        let previousState = await state
-        await reset { _, result in
-            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
+    func testReset(file: StaticString = #file, line: UInt = #line) async {
+        await testSuccessfulTransition(file: file, line: line, to: initialState.identifier) {
+            try await self.reset()
         }
-        await waitFor(file: file, line: line, await state == desiredState)
     }
 
     func testTransition(file: StaticString = #file, line: UInt = #line,
                         to desiredState: S) async {
-        let previousState = await state
-        await transition(to: desiredState) { _, result in
-            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
+        await testSuccessfulTransition(file: file, line: line, to: desiredState) {
+            try await self.transition(to: desiredState)
         }
-        await waitFor(file: file, line: line, await state == desiredState)
     }
 
     func testTransition(file: StaticString = #file, line: UInt = #line,
                         to desiredState: S,
                         redirectsTo finalState: S) async {
-        let previousState = await state
-        await transition(to: desiredState) { _, result in
-            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: finalState)
+        await testSuccessfulTransition(file: file, line: line, to: finalState) {
+            try await self.transition(to: desiredState)
         }
-        await waitFor(file: file, line: line, await state == finalState)
+    }
+
+    func testDynamicTransition(file: StaticString = #file, line: UInt = #line,
+                               to desiredState: S) async {
+        await testSuccessfulTransition(file: file, line: line, to: desiredState) {
+            try await self.transition()
+        }
+    }
+
+    private func testSuccessfulTransition(file: StaticString = #file, line: UInt = #line,
+                                          to desiredState: S,
+                                          using transition: () async throws -> TransitionResult<S>) async {
+        let previousState = await state
+        do {
+            let result = try await transition()
+            expect(file: file, line: line, result.from).to(equal(previousState), description: "result from state does not match")
+            expect(file: file, line: line, result.to).to(equal(desiredState), description: "result to state does not match")
+            await expect(file: file, line: line, { await self.state }).to(equal(desiredState), description: "machine state incorrect")
+        } catch {
+            fail("Unexpected transition error \(previousState) -> \(desiredState): \(error)", file: file, line: line)
+        }
     }
 
     func testTransition(file: StaticString = #file, line: UInt = #line,
                         to desiredState: S,
                         failsWith expectedError: StateMachineError<S>) async {
-        let finished = FlagActor()
-        await transition(to: desiredState) { _, result in
-            result.validateFailure(file: file, line: line, with: expectedError)
-            await finished.set()
+        await testTransition(file: file, line: line, failsWith: expectedError) {
+            try await self.transition(to: desiredState)
         }
-        await waitFor(file: file, line: line, await finished.flag)
-    }
-
-    func testDynamicTransition(file: StaticString = #file, line: UInt = #line,
-                               to desiredState: S) async {
-        let previousState = await state
-        await transition { machine, result in
-            await expect(file: file, line: line, { await machine.state }) == desiredState
-            result.validateSuccessful(file: file, line: line, transitionFrom: previousState, to: desiredState)
-        }
-        await waitFor(file: file, line: line, await state == desiredState)
     }
 
     func testDynamicTransition(file: StaticString = #file, line: UInt = #line,
                                failsWith expectedError: StateMachineError<S>) async {
-        let finished = FlagActor()
-        await transition { _, result in
-            result.validateFailure(file: file, line: line, with: expectedError)
-            await finished.set()
-        }
-        await waitFor(file: file, line: line, await finished.flag)
-    }
-}
-
-private extension Result {
-
-    func validateSuccessful<S>(file: StaticString, line: UInt, transitionFrom fromState: S, to toState: S) where S: StateIdentifier, Success == (from: S, to: S), Failure == StateMachineError<S> {
-        switch self {
-        case .failure(let error):
-            fail("Transition failure: \(error)", file: file, line: line)
-        case .success(let change):
-            if change.from != fromState || change.to != toState {
-                fail("Expected to transition \(fromState) -> \(toState), got \(change.from) -> \(change.to) instead", file: file, line: line)
-            }
+        await testTransition(file: file, line: line, failsWith: expectedError) {
+            try await self.transition()
         }
     }
 
-    func validateFailure<S>(file: StaticString, line: UInt,
-                            with expectedError: StateMachineError<S>) where S: StateIdentifier, Success == (from: S, to: S), Failure == StateMachineError<S> {
-        switch self {
-        case .failure(let error) where error == expectedError:
-            break // This is good.
-        case .failure(let error):
-            fail("Unexpected transition failure: \(error)", file: file, line: line)
-        case .success:
-            fail("Expected transition to fail", file: file, line: line)
+    private func testTransition(file: StaticString = #file, line: UInt = #line,
+                                failsWith expectedError: StateMachineError<S>,
+                                using transition: () async throws -> TransitionResult<S>) async {
+        do {
+            _ = try await transition()
+            fail("Error not thrown")
+        } catch let error as StateMachineError<S> {
+            expect(file: file, line: line, error).to(equal(expectedError), description: "incorrect error returned")
+        } catch {
+            fail("Unexpected error: \(error)", file: file, line: line)
         }
     }
 }

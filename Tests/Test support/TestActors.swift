@@ -15,11 +15,3 @@ actor LogActor {
     }
 }
 
-/// Used to flag an event across concurrency domains.
-actor FlagActor {
-    var flag = false
-    func set() {
-        flag = true
-    }
-}
-

@@ -6,54 +6,32 @@ import Combine
 import Foundation
 import os
 
-/// Simple state machine used to lock the machine execution so we don't have concurrency issues.
-private actor MachineState {
-
-    private enum State {
-        case idle
-        case transitioning
-        case suspended
-    }
-
-    private var state: State = .idle
-
-    var ready: Bool { state == .idle }
-
-    func startTransition(_: Task<Void, Never>) {
-        state = .transitioning
-    }
-
-    func transitionFinished() {
-        if state != .suspended {
-            state = .idle
-        }
-    }
-
-    func suspend(_ suspend: Bool) {
-        state = suspend ? .suspended : .idle
-    }
-}
-
 /// The implementation of a state machine.
 public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
 
     private let didTransition: MachineDidTransition<S>?
     private let currentStateSubject: CurrentValueSubject<StateConfig<S>, Never>
-    private let machineState = MachineState()
     private let platform: any Platform<S>
 
     private var postTransitionNotifications = false
-    private var transitionQueue: [(any Transitionable<S>) async -> Void] = []
+
+    var suspended = false
+    var currentState: StateConfig<S> {
+        currentStateSubject.value
+    }
 
     nonisolated let stateConfigs: [S: StateConfig<S>]
     nonisolated let initialState: StateConfig<S>
 
-    var currentStateConfig: StateConfig<S> { currentStateSubject.value }
-
     /// The machines unique logger.
     let logger: Logger
 
-    public var state: S { currentStateConfig.identifier }
+    public var state: S { currentState.identifier }
+
+    /// publishes a stream of states as they change.
+    public nonisolated var statePublisher: AnyPublisher<S, Never> {
+        currentStateSubject.map(\.identifier).eraseToAnyPublisher()
+    }
 
     // MARK: - Lifecycle
 
@@ -97,132 +75,90 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
         postTransitionNotifications = postNotifications
     }
 
-    func suspend(_ suspended: Bool) async {
-        await machineState.suspend(suspended)
-        if suspended {
-            logger.trace("Suspending transition execution")
-        } else {
-            logger.trace("Resuming transition execution")
-            await executeNextTransition()
+    // MARK: - Public transition requests
+
+    @discardableResult
+    public func reset() async throws -> TransitionResult<S> {
+        try await execute {
+            self.logger.trace("Resetting to initial state")
+            return await self.transition(toState: self.initialState, didExit: nil, didEnter: self.initialState.didEnter)
         }
     }
 
-    // MARK: - Public transition requests
-
-    public func reset(completion: TransitionCompleted<S>?) async {
-        logger.trace("Queuing reset")
-        transitionQueue = []
-        await queue(atHead: true, transition: { machine in
-            machine.logger.trace("Resetting to initial state")
-            return await machine.completeTransition(toState: machine.initialState, didExit: nil, didEnter: machine.initialState.didEnter)
-        },
-        completion: completion)
-    }
-
-    public func transition(completion: TransitionCompleted<S>?) async {
-        logger.trace("Queuing dynamic transition")
-        await queue(atHead: false, transition: { machine in
-            guard let dynamicClosure = await machine.currentStateConfig.dynamicTransition else {
-                throw StateMachineError<S>.noDynamicClosure(await machine.state)
+    @discardableResult
+    public func transition() async throws -> TransitionResult<S> {
+        try await execute {
+            self.logger.trace("Executing dynamic transition")
+            guard let dynamicTransition = self.currentState.dynamicTransition else {
+                throw StateMachineError.noDynamicClosure(self.state)
             }
-            machine.logger.trace("Running dynamic transition")
-            return try await machine.performTransition(toState: await dynamicClosure(machine))
-        },
-        completion: completion)
+            self.logger.trace("Running dynamic transition")
+            return try await self.transition(to: await dynamicTransition())
+        }
     }
 
-    public func transition(to state: S, completion: TransitionCompleted<S>?) async {
-        logger.trace("Queuing transition to .\(String(describing: state))")
-        await queue(atHead: false, transition: { machine in
-            try await machine.performTransition(toState: state)
-        },
-        completion: completion)
+    @discardableResult
+    public func transition(to state: S) async throws -> TransitionResult<S> {
+        try await execute {
+            self.logger.trace("Executing transition to .\(String(describing: state))")
+            let newStateConfig = try await self.preflight(toState: state)
+            return await self.transition(toState: newStateConfig, didExit: self.currentState.didExit, didEnter: newStateConfig.didEnter)
+        }
     }
 
     // MARK: - Transition sequence
 
-    func queue(atHead: Bool, transition: @escaping (any Transitionable<S>) async throws -> StateConfig<S>, completion: TransitionCompleted<S>?) async {
-        let wrappedTransition = { machine in
-            do {
-                let priorState = try await transition(machine).identifier
-                await completion?(machine, .success((from: priorState, to: await machine.state)))
-            } catch let error as StateMachineError<S> {
-                await completion?(machine, .failure(error))
-            } catch {
-                machine.logger.trace("Unexpected error detected: \(error.localizedDescription).")
-                await completion?(machine, .failure(StateMachineError<S>.unexpectedError(error)))
-            }
-        }
-        if atHead {
-            transitionQueue.append(wrappedTransition)
-        } else {
-            transitionQueue.insert(wrappedTransition, at: 0)
-        }
-        await executeNextTransition()
-    }
-
-    // Execute the next block. Unless already executing, then ignore.
-    private func executeNextTransition() async {
+    func execute(transition: @escaping () async throws -> TransitionResult<S>) async throws -> TransitionResult<S> {
 
         // If suspended or already executing a transition then bail.
-        guard await machineState.ready, let nextTransition = transitionQueue.popLast() else {
-            logger.trace("Machine suspended, currently executing or no pending transition, waiting ...")
-            return
+        if suspended {
+            logger.error("Machine suspended. Cannot execute transition request.")
+            throw StateMachineError<S>.suspended
         }
 
-        logger.trace("Executing next transition")
-        await machineState.startTransition(
-            Task.detached(priority: .background) { [weak self] in
-                guard let self else {
-                    return
-                }
-                await nextTransition(self)
-                await self.machineState.transitionFinished()
-                await self.executeNextTransition()
-            })
+        do {
+            return try await transition()
+        } catch let error as StateMachineError<S> {
+            logger.trace("Transition failed: \(error.localizedDescription)")
+            throw error
+        } catch {
+            logger.trace("Unexpected error: \(error.localizedDescription).")
+            throw StateMachineError<S>.unexpectedError(error)
+        }
     }
 
-    func performTransition(toState newState: S) async throws -> StateConfig<S> {
+    func preflight(toState newState: S) async throws -> StateConfig<S> {
 
         let nextState = try stateConfigs.config(for: newState)
-
-        switch await currentStateConfig.preflightTransition(toState: nextState, inMachine: self) {
-
-        case .fail(error: let error):
-            logger.trace("Preflight failed: \(error.localizedDescription)")
-            throw error
+        switch try await currentState.preflightTransition(toState: nextState, inMachine: self) {
 
         case .redirect(to: let redirectState):
             logger.trace("Preflight redirecting to: .\(String(describing: redirectState))")
-            return try await performTransition(toState: redirectState)
+            return try await preflight(toState: redirectState)
 
         case .allow:
-            break
+            logger.trace("Preflight passed")
+            return nextState
         }
-
-        logger.trace("Preflight passed")
-        let previousState = state
-        let fromState = await completeTransition(toState: nextState, didExit: currentStateConfig.didExit, didEnter: nextState.didEnter)
-
-        if postTransitionNotifications {
-            await NotificationCenter.default.postStateChange(machine: self, oldState: previousState)
-        }
-        return fromState
     }
 
-    func completeTransition(toState: StateConfig<S>, didExit: DidExitState<S>?, didEnter: DidEnterState<S>?) async -> StateConfig<S> {
+    func transition(toState: StateConfig<S>, didExit: DidExitState<S>?, didEnter: DidEnterState<S>?) async -> TransitionResult<S> {
 
         logger.trace("Transitioning to \(toState)")
 
-        let fromState = currentStateConfig
+        let fromStateIdentifier = currentState.identifier
+        let toStateIdentifier = toState.identifier
 
         // State change
         currentStateSubject.value = toState
-        await didExit?(self, fromState.identifier, toState.identifier)
-        await didEnter?(self, fromState.identifier, toState.identifier)
-        await didTransition?(self, fromState.identifier, toState.identifier)
+        await didExit?(fromStateIdentifier, toStateIdentifier)
+        await didEnter?(fromStateIdentifier, toStateIdentifier)
+        await didTransition?(fromStateIdentifier, toStateIdentifier)
+        if postTransitionNotifications {
+            await NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
+        }
         logger.trace("Transition completed.")
-        return fromState
+        return (from: fromStateIdentifier, to: toStateIdentifier)
     }
 }
 
@@ -239,18 +175,3 @@ extension Dictionary where Key: StateIdentifier, Value == StateConfig<Key> {
     }
 }
 
-// MARK: - Combine
-
-/// Extension that provides combine support to the machine.
-public extension StateMachine {
-
-    /// publishes a stream of states as they change.
-    nonisolated var statePublisher: AnyPublisher<S, Never> {
-        currentStateSubject.map(\.identifier).eraseToAnyPublisher()
-    }
-
-    /// Provides an async sequence of state changes.
-    nonisolated var stateSequence: ErasedAsyncPublisher<S> {
-        ErasedAsyncPublisher(publisher: statePublisher)
-    }
-}

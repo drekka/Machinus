@@ -5,7 +5,7 @@
 import Foundation
 import Combine
 
-/// Version of an ``AsyncPublisher`` that erases the wrapped publisher.
+/// Wrapper around a ``AsyncPublisher`` that erases the wrapped publisher.
 public struct ErasedAsyncPublisher<T>: AsyncSequence {
 
     public typealias AsyncIterator = AsyncPublisher<AnyPublisher<T, Never>>.Iterator

@@ -11,6 +11,7 @@ extension StateMachineError: Equatable {
 
         case (.transitionDenied, .transitionDenied),
              (.alreadyInState, .alreadyInState),
+             (.suspended, .suspended),
              (.illegalTransition, .illegalTransition):
             return true
 
@@ -29,8 +30,6 @@ extension StateConfig<TestState>.PreflightResponse<TestState>: Equatable {
         switch (lhs, rhs) {
         case (.allow, .allow):
             return true
-        case (.fail(let lhsError), .fail(let rhsError)):
-            return lhsError == rhsError
         case (.redirect(let lhsState), .redirect(let rhsState)):
             return lhsState == rhsState
         default:
@@ -38,4 +37,3 @@ extension StateConfig<TestState>.PreflightResponse<TestState>: Equatable {
         }
     }
 }
-

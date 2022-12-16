@@ -14,18 +14,20 @@ actor MockMachine: Transitionable {
     let stateConfigs: [TestState: StateConfig<TestState>]
     let initialState: StateConfig<TestState>
 
-    let currentState: CurrentValueSubject<StateConfig<TestState>, Never>
-    var currentStateConfig: StateConfig<TestState> {
-        currentState.value
+    let currentStateSubject: CurrentValueSubject<StateConfig<TestState>, Never>
+    var currentState: StateConfig<TestState> {
+        currentStateSubject.value
     }
 
     nonisolated var statePublisher: AnyPublisher<TestState, Never> {
-        currentState.map(\.identifier).eraseToAnyPublisher()
+        currentStateSubject.map(\.identifier).eraseToAnyPublisher()
     }
 
     var state: TestState {
-        currentStateConfig.identifier
+        currentState.identifier
     }
+
+    var suspended = false
 
     init(states: [StateConfig<TestState>] = [
         StateConfig(.aaa, canTransitionTo: .bbb),
@@ -34,29 +36,29 @@ actor MockMachine: Transitionable {
     ]) {
         initialState = states.first!
         stateConfigs = Dictionary(uniqueKeysWithValues: states.map { ($0.identifier, $0) })
-        currentState = CurrentValueSubject(initialState)
+        currentStateSubject = CurrentValueSubject(initialState)
     }
 
-    func reset(completion _: TransitionCompleted<TestState>?) async {}
+    func postNotifications(_: Bool) {}
 
-    func suspend(_: Bool) async {}
+    var resetResult: TransitionResult<S>?
+    func reset() async throws -> TransitionResult<TestState> { resetResult! }
 
-    func queue(atHead _: Bool,
-               transition _: @escaping (any Transitionable<TestState>) async throws -> StateConfig<TestState>,
-               completion _: TransitionCompleted<TestState>?) async {}
+    var executeResult: TransitionResult<S>?
+    func execute(transition _: @escaping () async throws -> TransitionResult<S>) async throws -> TransitionResult<S> { executeResult! }
 
     func performTransition(toState state: TestState) async throws -> StateConfig<TestState> {
-        let previous = currentStateConfig
-        currentState.value = stateConfigs[state]!
+        let previous = currentState
+        currentStateSubject.value = stateConfigs[state]!
         return previous
     }
 
-    func transition(completion _: TransitionCompleted<TestState>?) async {}
+    var transitionResult: TransitionResult<S>?
+    func transition() async throws -> TransitionResult<TestState> { transitionResult! }
 
-    func transition(to _: TestState, completion _: TransitionCompleted<TestState>?) async {}
+    var transitionToResult: TransitionResult<S>?
+    func transition(to _: TestState) async throws -> TransitionResult<TestState> { transitionToResult! }
 
-    var transitionResult: StateConfig<TestState>?
-    func completeTransition(toState _: StateConfig<TestState>, didExit _: DidExitState<TestState>?, didEnter _: DidEnterState<TestState>?) async -> StateConfig<TestState> {
-        transitionResult!
-    }
+    var transitionToStateResult: TransitionResult<S>?
+    func transition(toState _: StateConfig<S>, didExit _: DidExitState<S>?, didEnter _: DidEnterState<S>?) async -> TransitionResult<S> { transitionToStateResult! }
 }
