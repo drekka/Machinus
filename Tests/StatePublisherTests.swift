@@ -8,7 +8,7 @@ import Machinus
 import Nimble
 import XCTest
 
-class CombineTests: XCTestCase {
+class StatePublisherTests: XCTestCase {
 
     private var machine: StateMachine<TestState>!
     private var states: [TestState]!

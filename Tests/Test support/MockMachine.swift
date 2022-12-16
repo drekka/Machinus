@@ -8,6 +8,7 @@ import Foundation
 import os
 
 actor MockMachine: Transitionable {
+
     let logger = Logger(subsystem: "au.com.derekclarkson.Machinus", category: "🤖 Testing")
 
     let stateConfigs: [TestState: StateConfig<TestState>]
@@ -37,6 +38,8 @@ actor MockMachine: Transitionable {
         stateConfigs = Dictionary(uniqueKeysWithValues: states.map { ($0.identifier, $0) })
         currentStateSubject = CurrentValueSubject(initialState)
     }
+
+    func postNotifications(_: Bool) {}
 
     var resetResult: TransitionResult<S>?
     func reset() async throws -> TransitionResult<TestState> { resetResult! }

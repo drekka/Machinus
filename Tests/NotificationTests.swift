@@ -13,7 +13,7 @@ class NotificationTests: XCTestCase {
     private var stateB: StateConfig<TestState> = StateConfig(.bbb)
     private var stateC: StateConfig<TestState> = StateConfig(.ccc) // Because machines must have 3 states.
 
-    private var machine: StateMachine<TestState>!
+    private var machine: (any Machine<TestState>)!
     private var observer: Any?
 
     override func tearDown() {

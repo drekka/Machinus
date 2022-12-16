@@ -28,6 +28,11 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
 
     public var state: S { currentState.identifier }
 
+    /// publishes a stream of states as they change.
+    public nonisolated var statePublisher: AnyPublisher<S, Never> {
+        currentStateSubject.map(\.identifier).eraseToAnyPublisher()
+    }
+
     // MARK: - Lifecycle
 
     /// Convenience initialiser which uses a result builder.
@@ -72,6 +77,7 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
 
     // MARK: - Public transition requests
 
+    @discardableResult
     public func reset() async throws -> TransitionResult<S> {
         try await execute {
             self.logger.trace("Resetting to initial state")
@@ -79,6 +85,7 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
         }
     }
 
+    @discardableResult
     public func transition() async throws -> TransitionResult<S> {
         try await execute {
             self.logger.trace("Executing dynamic transition")
@@ -90,6 +97,7 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
         }
     }
 
+    @discardableResult
     public func transition(to state: S) async throws -> TransitionResult<S> {
         try await execute {
             self.logger.trace("Executing transition to .\(String(describing: state))")
@@ -167,18 +175,3 @@ extension Dictionary where Key: StateIdentifier, Value == StateConfig<Key> {
     }
 }
 
-// MARK: - Combine
-
-/// Extension that provides combine support to the machine.
-public extension StateMachine {
-
-    /// publishes a stream of states as they change.
-    nonisolated var statePublisher: AnyPublisher<S, Never> {
-        currentStateSubject.map(\.identifier).eraseToAnyPublisher()
-    }
-
-    /// Provides an async sequence of state changes.
-    nonisolated var stateSequence: ErasedAsyncPublisher<S> {
-        ErasedAsyncPublisher(publisher: statePublisher)
-    }
-}

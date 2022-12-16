@@ -24,6 +24,9 @@ public protocol Machine<S>: Actor {
     /// Provides an async sequence of state changes.
     nonisolated var stateSequence: ErasedAsyncPublisher<S> { get }
 
+    /// If enabled, posts notifications of state changes.
+    func postNotifications(_ postNotifications: Bool)
+
     /// Resets the state machine to it's initial state which will be the first state the machine was initialised with.
     ///
     /// Note that this is a "hard" reset that ignores `didExit` closures, allow lists and transition barriers. The only code called is the
