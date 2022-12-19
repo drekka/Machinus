@@ -33,6 +33,8 @@ class StateAsyncSequenceTests: XCTestCase {
 
         // Execute. The sleeps appear to be required here to allow the async sequence background task to do it's thing
         // without dropping any values.
+        try await Task.sleep(for: .milliseconds(100))
+
         try await machine.transition(to: .bbb)
         await machine.waitFor(state: .bbb)
 

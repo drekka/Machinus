@@ -36,10 +36,10 @@ class NotificationTests: XCTestCase {
 
     func testWatchingStateChanges() async throws {
 
-        var observedMachine: StateMachine<TestState>?
+        var observedMachine: (any Machine<TestState>)?
         var fromState: TestState?
         var toState: TestState?
-        observer = NotificationCenter.default.addStateChangeObserver { (sm: StateMachine<TestState>, from: TestState, to: TestState) in
+        observer = NotificationCenter.default.addStateChangeObserver { (sm: any Machine<TestState>, from: TestState, to: TestState) in
             observedMachine = sm
             fromState = from
             toState = to
