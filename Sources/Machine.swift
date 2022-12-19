@@ -4,6 +4,7 @@
 
 import Combine
 import Foundation
+import SwiftUI
 
 // Tuple returned from transitions.
 public typealias TransitionResult<S> = (from: S, to: S) where S: StateIdentifier
@@ -11,7 +12,7 @@ public typealias TransitionResult<S> = (from: S, to: S) where S: StateIdentifier
 /// Public interface for the state machine.
 ///
 /// This is the public protocol passed to closures.
-public protocol Machine<S>: Actor {
+public protocol Machine<S>: Actor, ObservableObject {
 
     /// The state identifier.
     associatedtype S: StateIdentifier
