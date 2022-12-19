@@ -23,7 +23,7 @@ public extension NotificationCenter {
       - Parameter machine: The machine that just had a state change.
       - Parameter oldState: The previous state of the machine.
      */
-    func postStateChange<S>(machine: StateMachine<S>, oldState: S) async {
+    func postStateChange<S>(machine: any Machine<S>, oldState: S) async {
         await post(.stateChange(machine: machine, oldState: oldState))
     }
 
@@ -37,9 +37,9 @@ public extension NotificationCenter {
       - Parameter fromState: The previous state of the machine.
       - Parameter toState: The new state of the machine.
      */
-    func addStateChangeObserver<S>(_ observer: @escaping (_ machine: StateMachine<S>, _ fromState: S, _ toState: S) -> Void) -> Any {
+    func addStateChangeObserver<S>(_ observer: @escaping (_ machine: any Machine<S>, _ fromState: S, _ toState: S) -> Void) -> Any {
         return addObserver(forName: .stateChange, object: nil, queue: nil) { notification in
-            if let data: (machine: StateMachine<S>, fromState: S, toState: S) = notification.stateChangeInfo() {
+            if let data: (machine: any Machine<S>, fromState: S, toState: S) = notification.stateChangeInfo() {
                 observer(data.machine, data.fromState, data.toState)
             }
         }
@@ -52,16 +52,16 @@ public extension Notification.Name {
 
 extension Notification {
 
-    static func stateChange<S>(machine: StateMachine<S>, oldState: S) async -> Notification {
+    static func stateChange<S>(machine: any Machine<S>, oldState: S) async -> Notification {
         return Notification(name: .stateChange, object: machine, userInfo: [
             StateChange.fromState.rawValue: oldState,
             StateChange.toState.rawValue: await machine.state,
         ])
     }
 
-    func stateChangeInfo<S>() -> (machine: StateMachine<S>, fromState: S, toState: S)? {
+    func stateChangeInfo<S>() -> (machine: any Machine<S>, fromState: S, toState: S)? {
 
-        guard let machine = object as? StateMachine<S>,
+        guard let machine = object as? any Machine<S>,
               let info = userInfo,
               let fromState = info[StateChange.fromState.rawValue] as? S,
               let toState = info[StateChange.toState.rawValue] as? S else {
