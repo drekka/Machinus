@@ -5,32 +5,37 @@
 import Combine
 import Foundation
 import os
+import SwiftUI
+import UIKit
 
 /// The implementation of a state machine.
-public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
+public class StateMachine<S>: ObservableObject where S: StateIdentifier {
 
-    private let didTransition: MachineDidTransition<S>?
-    private let currentStateSubject: CurrentValueSubject<StateConfig<S>, Never>
-    private let platform: any Platform<S>
-
-    private var postTransitionNotifications = false
-
-    var suspended = false
-    var currentState: StateConfig<S> {
-        currentStateSubject.value
+    private enum State {
+        case initializing
+        case ready
+        case background(StateConfig<S>) // Also tracks the state to restore to.
+        case resetting
     }
 
-    nonisolated let stateConfigs: [S: StateConfig<S>]
-    nonisolated let initialState: StateConfig<S>
+    private let logger: Logger
+    private let didTransition: DidTransition<S>?
+    private let stateConfigs: [S: StateConfig<S>]
+    private let initialState: StateConfig<S>
+    private let backgroundState: StateConfig<S>! // Set if iOS/tvOS and background state specified.
 
-    /// The machines unique logger.
-    let logger: Logger
+    private var machineState: State = .initializing
+    private var currentState: CurrentValueSubject<StateConfig<S>, Never>
+    private var stateChangeProcess: AnyCancellable?
+    private var notificationObservers: [Any] = []
 
-    public var state: S { currentState.identifier }
+    @Published public var state: S
+    @Published public var error: StateMachineError<S>?
 
-    /// publishes a stream of states as they change.
-    public nonisolated var statePublisher: AnyPublisher<S, Never> {
-        currentStateSubject.map(\.identifier).eraseToAnyPublisher()
+    public var postTransitionNotifications = false
+
+    deinit {
+        notificationObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - Lifecycle
@@ -41,100 +46,147 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
     ///     - name: The unique name of this state machine. If not passed then a unique UUID is used. Mostly used in logging.
     ///     - didTransition: A closure that is called after every a transition, Takes the machine the old state as arguments.
     ///     - state: A builder that defines a list of states.
-    public init(name: String? = nil,
-                didTransition: MachineDidTransition<S>? = nil,
-                @StateConfigBuilder<S> withStates states: () -> [StateConfig<S>]) async throws {
-
-        let logCategory = name ?? UUID().uuidString + "<" + String(describing: S.self) + ">"
-        logger = Logger(subsystem: "au.com.derekclarkson.Machinus", category: logCategory + " 🤖")
-        self.didTransition = didTransition
-
-        let stateList = states()
-        if stateList.count < 3 {
-            throw StateMachineError<S>.configurationError("Insufficient state. There must be at least 3 states.")
-        }
-
-        initialState = stateList[0]
-        currentStateSubject = CurrentValueSubject(initialState)
-
-        let configs = stateList.map { ($0.identifier, $0) }
-        stateConfigs = try Dictionary(configs) { left, _ in
-            throw StateMachineError<S>.configurationError("Duplicate states detected for identifier \(left).")
-        }
-
-        #if os(iOS) || os(tvOS)
-            platform = IOSPlatform()
-        #else
-            platform = MacOSPlatform()
-        #endif
-        try await platform.configure(machine: self)
+    public convenience init(name: String? = nil, didTransition: DidTransition<S>? = nil, @StateConfigBuilder<S> withStates states: () -> [StateConfig<S>]) {
+        self.init(name: name, didTransition: didTransition, withStates: states())
     }
 
-    /// If set to true, causes the machine to issue state change notifications through the default notification center.
-    public func postNotifications(_ postNotifications: Bool) {
-        postTransitionNotifications = postNotifications
+    public convenience init(name: String? = nil, didTransition: DidTransition<S>? = nil, withStates states: StateConfig<S>...) {
+        self.init(name: name, didTransition: didTransition, withStates: states)
+    }
+
+    public init(name: String? = nil, didTransition: DidTransition<S>? = nil, withStates states: [StateConfig<S>]) {
+
+        let logCategory = name ?? UUID().uuidString + "<" + String(describing: S.self) + ">"
+        logger = Logger(subsystem: "au.com.derekclarkson.machinus", category: logCategory + " 🤖")
+        self.didTransition = didTransition
+
+        if states.endIndex < 3 {
+            fatalError("not enough states. There must be at least 3 for a machine to work.")
+        }
+
+        let configs = states.map { ($0.identifier, $0) }
+        stateConfigs = Dictionary(configs) { left, _ in
+            fatalError("Multiple \(left) states being registered. Each state must have a unique identifier.")
+        }
+
+        initialState = states[0]
+        currentState = CurrentValueSubject(initialState)
+        state = initialState.identifier
+
+        #if os(iOS) || os(tvOS)
+
+            let backgroundStates = states.filter { $0.features.contains(.background) }
+            if backgroundStates.endIndex > 1 {
+                fatalError("Multiple background states detected. Only one allowed.")
+            }
+
+            backgroundState = backgroundStates.first
+            if backgroundState != nil {
+                logger.trace("iOS platform watching for application background notifications")
+                notificationObservers = [
+                    NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil) { [weak self] _ in
+                        self?.enterBackground()
+                    },
+                    NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil) { [weak self] _ in
+                        self?.returnToForeGround()
+                    },
+                ]
+            }
+        #endif
+
+        stateChangeProcess = currentState.scan(initialState) { [weak self] fromState, toState in
+
+            guard let self else {
+                return fromState
+            }
+            if case .initializing = self.machineState {
+                return toState
+            }
+
+            self.logger.trace("Transitioning to \(toState)")
+
+            let fromStateIdentifier = fromState.identifier
+            let toStateIdentifier = toState.identifier
+            self.state = toStateIdentifier
+            if self.error != nil {
+                self.error = nil
+            }
+
+            if case .resetting = self.machineState {
+                self.logger.trace("Resetting, skipping closures")
+                return toState
+            }
+
+            // If we are transitioning to the background we don't execute the previous state's `didExit`.
+            if toState != self.backgroundState {
+                fromState.didExit?(fromStateIdentifier, toStateIdentifier)
+            }
+
+            // If we are transitioning to the foreground we don't execute the restore state's `didEnter`.
+            if fromState != self.backgroundState {
+                toState.didEnter?(fromStateIdentifier, toStateIdentifier)
+            }
+
+            self.didTransition?(fromStateIdentifier, toStateIdentifier)
+            if self.postTransitionNotifications {
+                NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
+            }
+
+            self.logger.trace("Transition completed.")
+            return toState
+        }.sink { _ in }
+
+        machineState = .ready
     }
 
     // MARK: - Public transition requests
 
-    @discardableResult
-    public func reset() async throws -> TransitionResult<S> {
-        try await execute {
-            self.logger.trace("Resetting to initial state")
-            return await self.transition(toState: self.initialState, didExit: nil, didEnter: self.initialState.didEnter)
-        }
+    public func reset() {
+        logger.trace("Resetting to initial state")
+        machineState = .resetting
+        currentState.value = initialState
+        machineState = .ready
     }
 
-    @discardableResult
-    public func transition() async throws -> TransitionResult<S> {
-        try await execute {
+    public func transition() {
+        execute {
+            try self.canTransition()
             self.logger.trace("Executing dynamic transition")
-            guard let dynamicTransition = self.currentState.dynamicTransition else {
+            guard let dynamicTransition = self.currentState.value.dynamicTransition else {
                 throw StateMachineError.noDynamicClosure(self.state)
             }
             self.logger.trace("Running dynamic transition")
-            return try await self.transition(to: await dynamicTransition())
+            self.currentState.value = try self.preflight(toState: dynamicTransition())
         }
     }
 
-    @discardableResult
-    public func transition(to state: S) async throws -> TransitionResult<S> {
-        try await execute {
-            self.logger.trace("Executing transition to .\(String(describing: state))")
-            let newStateConfig = try await self.preflight(toState: state)
-            return await self.transition(toState: newStateConfig, didExit: self.currentState.didExit, didEnter: newStateConfig.didEnter)
+    public func transition(to state: S) {
+        execute {
+            try self.canTransition()
+            self.currentState.value = try self.preflight(toState: state)
         }
     }
 
     // MARK: - Transition sequence
 
-    func execute(transition: @escaping () async throws -> TransitionResult<S>) async throws -> TransitionResult<S> {
-
-        // If suspended or already executing a transition then bail.
-        if suspended {
-            logger.error("Machine suspended. Cannot execute transition request.")
+    private func canTransition() throws {
+        if case .background = machineState {
+            logger.error("Machine in background. Cannot execute transition request.")
             throw StateMachineError<S>.suspended
-        }
-
-        do {
-            return try await transition()
-        } catch let error as StateMachineError<S> {
-            logger.trace("Transition failed: \(error.localizedDescription)")
-            throw error
-        } catch {
-            logger.trace("Unexpected error: \(error.localizedDescription).")
-            throw StateMachineError<S>.unexpectedError(error)
         }
     }
 
-    func preflight(toState newState: S) async throws -> StateConfig<S> {
+    private func preflight(toState newState: S) throws -> StateConfig<S> {
 
-        let nextState = try stateConfigs.config(for: newState)
-        switch try await currentState.preflightTransition(toState: nextState, inMachine: self) {
+        guard let nextState = stateConfigs[newState] else {
+            throw StateMachineError.unknownState(newState)
+        }
+
+        switch try currentState.value.preflightTransition(toState: nextState, logger: logger) {
 
         case .redirect(to: let redirectState):
             logger.trace("Preflight redirecting to: .\(String(describing: redirectState))")
-            return try await preflight(toState: redirectState)
+            return try preflight(toState: redirectState)
 
         case .allow:
             logger.trace("Preflight passed")
@@ -142,36 +194,44 @@ public actor StateMachine<S>: Machine, Transitionable where S: StateIdentifier {
         }
     }
 
-    func transition(toState: StateConfig<S>, didExit: DidExitState<S>?, didEnter: DidEnterState<S>?) async -> TransitionResult<S> {
-
-        logger.trace("Transitioning to \(toState)")
-
-        let fromStateIdentifier = currentState.identifier
-        let toStateIdentifier = toState.identifier
-
-        // State change
-        currentStateSubject.value = toState
-        await didExit?(fromStateIdentifier, toStateIdentifier)
-        await didEnter?(fromStateIdentifier, toStateIdentifier)
-        await didTransition?(fromStateIdentifier, toStateIdentifier)
-        if postTransitionNotifications {
-            await NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
+    private func execute(transition: @escaping () throws -> Void) {
+        do {
+            try transition()
+        } catch let error as StateMachineError<S> {
+            logger.trace("Transition failed: \(error.localizedDescription)")
+            self.error = error
+        } catch {
+            logger.trace("Unexpected error: \(error.localizedDescription).")
+            self.error = StateMachineError<S>.unexpectedError(error)
         }
-        logger.trace("Transition completed.")
-        return (from: fromStateIdentifier, to: toStateIdentifier)
+    }
+
+    // MARK: - iOS/tvOS backgrounding
+
+    private func enterBackground() {
+        logger.trace("iOS platform processing background notification")
+        execute {
+            if case .background = self.machineState {
+                self.logger.error("Cannot background when already backgrounded.")
+                return
+            }
+            self.logger.trace("Entering background state \(self.backgroundState)")
+            let restoreState = self.currentState.value
+            self.currentState.value = self.backgroundState
+            self.machineState = .background(restoreState)
+        }
+    }
+
+    private func returnToForeGround() {
+        logger.trace("iOS platform processing foreground notification")
+        execute {
+            guard case .background(let restoreState) = self.machineState else {
+                self.logger.error("Cannot restore when not in background.")
+                return
+            }
+            self.logger.trace("Restoring state \(restoreState)")
+            self.machineState = .ready
+            self.currentState.value = restoreState
+        }
     }
 }
-
-// MARK: - Support
-
-extension Dictionary where Key: StateIdentifier, Value == StateConfig<Key> {
-
-    /// Wrapper around the default subscript that throws if a value is not found.
-    func config(for state: Key) throws -> StateConfig<Key> {
-        guard let config = self[state] else {
-            throw StateMachineError.unknownState(state)
-        }
-        return config
-    }
-}
-

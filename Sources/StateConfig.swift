@@ -1,6 +1,7 @@
 //
 //  Created by Derek Clarkson on 11/2/19.
 //
+import os
 
 /// Used to define config special features.
 struct Features: OptionSet {
@@ -161,26 +162,26 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
         case redirect(to: S)
     }
 
-    func preflightTransition(toState: StateConfig<S>, inMachine machine: any Transitionable<S>) async throws -> PreflightResponse<S> {
+    func preflightTransition(toState: StateConfig<S>, logger: Logger) throws -> PreflightResponse<S> {
 
-        machine.logger.trace("Preflighting transition \(self) -> \(toState)")
+        logger.trace("Preflighting transition \(self) -> \(toState)")
 
         // If the state is the same state then do nothing.
         if toState == self {
-            machine.logger.trace("Already in state \(self)")
+            logger.trace("Already in state \(self)")
             throw StateMachineError<S>.alreadyInState
         }
 
         // Check for a final state transition
         if features.contains(.final) {
-            machine.logger.error("Final state, cannot transition")
+            logger.error("Final state, cannot transition")
             throw StateMachineError<S>.illegalTransition
         }
 
         /// Process the registered transition barrier.
         if let barrier = toState.transitionBarrier {
-            machine.logger.trace("Executing transition barrier")
-            switch await barrier(identifier) {
+            logger.trace("Executing transition barrier")
+            switch barrier(identifier) {
             case .fail: throw StateMachineError<S>.transitionDenied
             case .redirect(to: let redirectState): return .redirect(to: redirectState)
             case .allow:
@@ -190,7 +191,7 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
         }
 
         guard allowedTransitions.contains(toState.identifier) || toState.features.contains(.global) else {
-            machine.logger.trace("Illegal transition")
+            logger.trace("Illegal transition")
             throw StateMachineError<S>.illegalTransition
         }
 
@@ -200,29 +201,9 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
 
 // MARK: - Hashable
 
-extension StateConfig: Hashable {
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(identifier)
-    }
+extension StateConfig: Equatable {
 
     public static func == (lhs: StateConfig<S>, rhs: StateConfig<S>) -> Bool {
         lhs.identifier == rhs.identifier
-    }
-
-    public static func == (lhs: S, rhs: StateConfig<S>) -> Bool {
-        lhs == rhs.identifier
-    }
-
-    public static func == (lhs: StateConfig<S>, rhs: S) -> Bool {
-        lhs.identifier == rhs
-    }
-
-    public static func != (lhs: S, rhs: StateConfig<S>) -> Bool {
-        lhs != rhs.identifier
-    }
-
-    public static func != (lhs: StateConfig<S>, rhs: S) -> Bool {
-        lhs.identifier != rhs
     }
 }

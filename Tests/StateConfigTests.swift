@@ -16,12 +16,6 @@ class StateConfigTests: XCTestCase {
     private var global: StateConfig<TestState> = StateConfig.global(.global, canTransitionTo: .aaa)
     private var final: StateConfig<TestState> = StateConfig.final(.final)
 
-    // MARK: - Hashable
-
-    func testHashValue() {
-        expect(self.stateA.hashValue) == TestState.aaa.hashValue
-    }
-
     // MARK: - Custom debug string convertable
 
     func testCustomStringConvertable() {
@@ -37,86 +31,66 @@ class StateConfigTests: XCTestCase {
         expect(self.stateA == self.stateB) == false
     }
 
-    func testEquatableStateEqualsConfig() {
-        expect(TestState.aaa == self.stateA) == true
-        expect(TestState.bbb == self.stateA) == false
-    }
-
-    func testEquatableConfigEqualsState() {
-        expect(self.stateA == TestState.aaa) == true
-        expect(self.stateA == TestState.bbb) == false
-    }
-
-    func testEquatableStateNotEqualsConfig() {
-        expect(TestState.aaa != self.stateA) == false
-        expect(TestState.bbb != self.stateA) == true
-    }
-
-    func testEquatableConfigNotEqualsState() {
-        expect(self.stateA != TestState.aaa) == false
-        expect(self.stateA != TestState.bbb) == true
-    }
-
     // MARK: - Pre-flight
 
-    func testPreflightAllowsTransition() async throws {
-        let result = try await stateA.preflightTransition(toState: stateB, inMachine: MockMachine())
+    func testPreflightAllowsTransition() throws {
+        let result = try stateA.preflightTransition(toState: stateB, logger: testLog)
         expect(result) == .allow
     }
 
-    func testPreflightSameStateFails() async {
-        await stateA.expectPreflight(to: stateA, toFailWith: .alreadyInState)
+    func testPreflightSameStateFails() {
+        stateA.expectPreflight(to: stateA, toFailWith: .alreadyInState)
     }
 
-    func testPreflightFinalStateExitFails() async {
-        await final.expectPreflight(to: stateB, toFailWith: .illegalTransition)
+    func testPreflightFinalStateExitFails() {
+        final.expectPreflight(to: stateB, toFailWith: .illegalTransition)
     }
 
-    func testPreflightBarrierAllows() async throws {
+    func testPreflightBarrierAllows() throws {
         let barrierState = StateConfig<TestState>(.bbb, transitionBarrier: { _ in
             .allow
         })
-        let result = try await stateA.preflightTransition(toState: barrierState, inMachine: MockMachine())
+        let result = try stateA.preflightTransition(toState: barrierState, logger: testLog)
         expect(result) == .allow
     }
 
-    func testPreflightBarrierAllowsThenAllowTransitionFails() async {
+    func testPreflightBarrierAllowsThenAllowTransitionFails() {
         let barrierState = StateConfig<TestState>(.ccc, transitionBarrier: { _ in
             .allow
         })
-        await stateA.expectPreflight(to: barrierState, toFailWith: .illegalTransition)
+        stateA.expectPreflight(to: barrierState, toFailWith: .illegalTransition)
     }
 
-    func testPreflightBarrierFails() async {
+    func testPreflightBarrierFails() {
         let barrierState = StateConfig<TestState>(.bbb, transitionBarrier: { _ in
             .fail
         })
-        await stateA.expectPreflight(to: barrierState, toFailWith: .transitionDenied)
+        stateA.expectPreflight(to: barrierState, toFailWith: .transitionDenied)
     }
 
-    func testPreflightBarrierRedirects() async throws {
+    func testPreflightBarrierRedirects() throws {
         let barrierState = StateConfig<TestState>(.bbb, transitionBarrier: { _ in
             .redirect(to: .ccc)
         })
-        let result = try await stateA.preflightTransition(toState: barrierState, inMachine: MockMachine())
+        let result = try stateA.preflightTransition(toState: barrierState, logger: testLog)
         expect(result) == .redirect(to: .ccc)
     }
 
-    func testPreflightAllowTransitionFails() async {
-        await stateA.expectPreflight(to: stateC, toFailWith: .illegalTransition)
+    func testPreflightAllowTransitionFails() {
+        stateA.expectPreflight(to: stateC, toFailWith: .illegalTransition)
     }
 
-    func testPreflightAllowsGlobal() async throws {
-        let result = try await stateA.preflightTransition(toState: global, inMachine: MockMachine())
+    func testPreflightAllowsGlobal() throws {
+        let result = try stateA.preflightTransition(toState: global, logger: testLog)
         expect(result) == .allow
     }
 }
 
 extension StateConfig where S == TestState {
 
-    func expectPreflight(file _: StaticString = #file, line _: UInt = #line, to nextState: StateConfig<S>, toFailWith expectedError: StateMachineError<S>) async {
+    func expectPreflight(file _: StaticString = #file, line _: UInt = #line, to nextState: StateConfig<S>, toFailWith expectedError: StateMachineError<S>) {
         do {
-            _ = try await preflightTransition(toState: nextState, inMachine: MockMachine())
+            _ = try preflightTransition(toState: nextState, logger: testLog)
         } catch let error as StateMachineError<S> {
             expect(error).to(equal(expectedError), description: "Incorrect error returned")
         } catch {

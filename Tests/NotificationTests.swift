@@ -13,7 +13,7 @@ class NotificationTests: XCTestCase {
     private var stateB: StateConfig<TestState> = StateConfig(.bbb)
     private var stateC: StateConfig<TestState> = StateConfig(.ccc) // Because machines must have 3 states.
 
-    private var machine: (any Machine<TestState>)!
+    private var machine: StateMachine<TestState>!
     private var observer: Any?
 
     override func tearDown() {
@@ -27,7 +27,7 @@ class NotificationTests: XCTestCase {
 
         try await super.setUp()
 
-        machine = try await StateMachine {
+        machine = StateMachine {
             stateA
             stateB
             stateC
@@ -36,17 +36,17 @@ class NotificationTests: XCTestCase {
 
     func testWatchingStateChanges() async throws {
 
-        var observedMachine: (any Machine<TestState>)?
+        var observedMachine: StateMachine<TestState>?
         var fromState: TestState?
         var toState: TestState?
-        observer = NotificationCenter.default.addStateChangeObserver { (sm: any Machine<TestState>, from: TestState, to: TestState) in
+        observer = NotificationCenter.default.addStateChangeObserver { (sm: StateMachine<TestState>, from: TestState, to: TestState) in
             observedMachine = sm
             fromState = from
             toState = to
         }
 
-        await machine.postNotifications(true)
-        _ = try await machine.transition(to: .bbb)
+        machine.postTransitionNotifications = true
+        machine.transition(to: .bbb)
 
         await expect(observedMachine).toEventuallyNot(beNil())
 
