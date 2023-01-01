@@ -6,7 +6,10 @@ import Combine
 import Foundation
 import os
 import SwiftUI
-import UIKit
+
+#if os(iOS) || os(tvOS)
+    import UIKit
+#endif
 
 /// The implementation of a state machine.
 public class StateMachine<S>: ObservableObject where S: StateIdentifier {
@@ -92,6 +95,8 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
                     },
                 ]
             }
+        #else
+            backgroundState = nil
         #endif
 
         stateChangeProcess = currentState.scan(initialState) { [weak self] fromState, toState in
