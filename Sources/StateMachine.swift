@@ -49,15 +49,15 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
     ///     - name: The unique name of this state machine. If not passed then a unique UUID is used. Mostly used in logging.
     ///     - didTransition: A closure that is called after every a transition, Takes the machine the old state as arguments.
     ///     - state: A builder that defines a list of states.
-    public convenience init(name: String? = nil, didTransition: DidTransition<S>? = nil, @StateConfigBuilder<S> withStates states: () -> [StateConfig<S>]) {
-        self.init(name: name, didTransition: didTransition, withStates: states())
+    public convenience init(name: String? = nil, @StateConfigBuilder<S> withStates states: () -> [StateConfig<S>], didTransition: DidTransition<S>? = nil) {
+        self.init(name: name, withStates: states(), didTransition: didTransition)
     }
 
-    public convenience init(name: String? = nil, didTransition: DidTransition<S>? = nil, withStates states: StateConfig<S>...) {
-        self.init(name: name, didTransition: didTransition, withStates: states)
+    public convenience init(name: String? = nil, withStates states: StateConfig<S>..., didTransition: DidTransition<S>? = nil) {
+        self.init(name: name, withStates: states, didTransition: didTransition)
     }
 
-    public init(name: String? = nil, didTransition: DidTransition<S>? = nil, withStates states: [StateConfig<S>]) {
+    public init(name: String? = nil, withStates states: [StateConfig<S>], didTransition: DidTransition<S>? = nil) {
 
         let logCategory = name ?? UUID().uuidString + "<" + String(describing: S.self) + ">"
         logger = Logger(subsystem: "au.com.derekclarkson.machinus", category: logCategory + " 🤖")

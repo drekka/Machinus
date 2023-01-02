@@ -61,8 +61,7 @@ class StateMachineTests: XCTestCase {
     }
 
     func testTransitionClosureSequencing() async {
-        let machine = StateMachine(didTransition: { self.log.append("\($0) -> \($1)") },
-                                   withStates: loopedStates)
+        let machine = StateMachine(withStates: loopedStates) { self.log.append("\($0) -> \($1)") }
 
         await machine.testTransition(to: .bbb)
         expect(self.log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
