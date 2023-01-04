@@ -214,13 +214,13 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
     // MARK: - iOS/tvOS backgrounding
 
     private func enterBackground() {
-        logger.trace("iOS platform processing background notification")
         execute {
+
             if case .background = self.machineState {
-                self.logger.error("Cannot background when already backgrounded.")
                 return
             }
-            self.logger.trace("Entering background state \(self.backgroundState)")
+
+            self.logger.trace("iOS platform processing background notification, switching to \(self.backgroundState)")
             let restoreState = self.currentState.value
             self.currentState.value = self.backgroundState
             self.machineState = .background(restoreState)
@@ -228,13 +228,13 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
     }
 
     private func returnToForeGround() {
-        logger.trace("iOS platform processing foreground notification")
         execute {
+
             guard case .background(let restoreState) = self.machineState else {
-                self.logger.error("Cannot restore when not in background.")
                 return
             }
-            self.logger.trace("Restoring state \(restoreState)")
+
+            self.logger.trace("iOS platform processing foreground notification, restoring state \(restoreState)")
             self.machineState = .ready
             self.currentState.value = restoreState
         }

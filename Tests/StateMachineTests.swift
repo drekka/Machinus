@@ -36,6 +36,22 @@ class StateMachineTests: XCTestCase {
 
     // MARK: - Lifecycle
 
+    func testInitializerWithBuilder() {
+        _ = StateMachine {
+            StateConfig<TestState>(.aaa)
+            StateConfig<TestState>(.bbb)
+            StateConfig<TestState>(.ccc)
+        }
+    }
+
+    func testInitializerWithVarArgList() {
+        _ = StateMachine<TestState>(withStates: StateConfig(.aaa), StateConfig(.bbb), StateConfig(.ccc))
+    }
+
+    func testInitializerWithArray() {
+        _ = StateMachine<TestState>(withStates: [StateConfig(.aaa), StateConfig(.bbb), StateConfig(.ccc)])
+    }
+
     func testReset() async {
         let machine = StateMachine(withStates: loopedStates)
         await machine.testTransition(to: .bbb)
