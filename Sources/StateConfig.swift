@@ -14,7 +14,7 @@ struct Features: OptionSet {
 }
 
 /// Possible responses from a transition barrier.
-public enum BarrierResponse<S>: Sendable where S: StateIdentifier {
+public enum BarrierResponse<S> where S: StateIdentifier {
 
     /// Allow the transition to continue.
     case allow
@@ -31,7 +31,7 @@ public enum BarrierResponse<S>: Sendable where S: StateIdentifier {
 /**
  Defines the setup of an individual state.
  */
-public struct StateConfig<S>: Sendable where S: StateIdentifier {
+public struct StateConfig<S> where S: StateIdentifier {
 
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
     let identifier: S

@@ -6,7 +6,7 @@
 /**
  Adopt this protocol to define a state implementation.
  */
-public protocol StateIdentifier: Hashable, Sendable {}
+public protocol StateIdentifier: Hashable {}
 
 extension StateConfig: CustomStringConvertible {
 
