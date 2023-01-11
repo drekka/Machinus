@@ -187,4 +187,21 @@ class StateMachineTests: XCTestCase {
         }
         await machine.testTransition(to: .global)
     }
+
+    // MARK: - State config changes
+
+    func testChangingStateConfigClosure() async {
+
+        let machine = StateMachine(withStates: loopedStates)
+
+        await machine.testTransition(to: .bbb)
+        expect(self.log) == ["aaaExit", "bbbEnter"]
+
+        machine[.ccc].didEnter = { _,_ in self.log.append("updated cccEnter")}
+
+        await machine.testTransition(to: .ccc)
+        expect(self.log) == ["aaaExit", "bbbEnter", "bbbExit", "updated cccEnter"]
+    }
+
+
 }

@@ -99,48 +99,50 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
             backgroundState = nil
         #endif
 
-        stateChangeProcess = currentState.scan(initialState) { [weak self] fromState, toState in
+        stateChangeProcess = currentState
+            .scan((initialState, initialState)) { ($0.1, $1) }
+            .sink { [weak self] fromState, toState in
 
-            guard let self else {
-                return fromState
+                guard let self else { return }
+
+                // Abort if the machine is setting up.
+                if case .initializing = self.machineState { return }
+
+                let fromStateIdentifier = fromState.identifier
+                let toStateIdentifier = toState.identifier
+
+                // Set the state
+                self.logger.trace("Transitioning to \(toState)")
+                self.state = toStateIdentifier
+                if self.error != nil {
+                    self.error = nil
+                }
+
+                // Avoid calling closures if resetting.
+                if case .resetting = self.machineState {
+                    self.logger.trace("Resetting, skipping closures")
+                    return
+                }
+
+                // If we are transitioning to the background we don't execute the previous state's `didExit`.
+                if toState != self.backgroundState {
+                    fromState.didExit?(fromStateIdentifier, toStateIdentifier)
+                }
+
+                // If we are transitioning to the foreground we don't execute the restore state's `didEnter`.
+                if fromState != self.backgroundState {
+                    toState.didEnter?(fromStateIdentifier, toStateIdentifier)
+                }
+
+                self.didTransition?(fromStateIdentifier, toStateIdentifier)
+                if self.postTransitionNotifications {
+                    NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
+                }
+
+                self.logger.trace("Transition completed.")
             }
-            if case .initializing = self.machineState {
-                return toState
-            }
 
-            self.logger.trace("Transitioning to \(toState)")
-
-            let fromStateIdentifier = fromState.identifier
-            let toStateIdentifier = toState.identifier
-            self.state = toStateIdentifier
-            if self.error != nil {
-                self.error = nil
-            }
-
-            if case .resetting = self.machineState {
-                self.logger.trace("Resetting, skipping closures")
-                return toState
-            }
-
-            // If we are transitioning to the background we don't execute the previous state's `didExit`.
-            if toState != self.backgroundState {
-                fromState.didExit?(fromStateIdentifier, toStateIdentifier)
-            }
-
-            // If we are transitioning to the foreground we don't execute the restore state's `didEnter`.
-            if fromState != self.backgroundState {
-                toState.didEnter?(fromStateIdentifier, toStateIdentifier)
-            }
-
-            self.didTransition?(fromStateIdentifier, toStateIdentifier)
-            if self.postTransitionNotifications {
-                NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
-            }
-
-            self.logger.trace("Transition completed.")
-            return toState
-        }.sink { _ in }
-
+        // Initialisation done.
         machineState = .ready
     }
 
@@ -209,6 +211,15 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
             logger.trace("Unexpected error: \(error.localizedDescription).")
             self.error = StateMachineError<S>.unexpectedError(error)
         }
+    }
+
+    // MARK: - Subscripts
+
+    subscript(state: S) -> StateConfig<S> {
+        guard let config = stateConfigs[state] else {
+            fatalError("Unknown state \(state)")
+        }
+        return config
     }
 
     // MARK: - iOS/tvOS backgrounding

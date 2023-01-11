@@ -14,7 +14,7 @@ struct Features: OptionSet {
 }
 
 /// Possible responses from a transition barrier.
-public enum BarrierResponse<S>: Sendable where S: StateIdentifier {
+public enum BarrierResponse<S> where S: StateIdentifier {
 
     /// Allow the transition to continue.
     case allow
@@ -31,16 +31,17 @@ public enum BarrierResponse<S>: Sendable where S: StateIdentifier {
 /**
  Defines the setup of an individual state.
  */
-public struct StateConfig<S>: Sendable where S: StateIdentifier {
+public final class StateConfig<S> where S: StateIdentifier {
 
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
     let identifier: S
     let features: Features
-    let didExit: DidExitState<S>?
-    let didEnter: DidEnterState<S>?
-    let dynamicTransition: DynamicTransition<S>?
-    let transitionBarrier: TransitionBarrier<S>?
-    private let allowedTransitions: [S]
+
+    public var didExit: DidExitState<S>?
+    public var didEnter: DidEnterState<S>?
+    public var dynamicTransition: DynamicTransition<S>?
+    public var transitionBarrier: TransitionBarrier<S>?
+    public var allowedTransitions: [S]
 
     // MARK: - Lifecycle
 
@@ -54,12 +55,12 @@ public struct StateConfig<S>: Sendable where S: StateIdentifier {
      - parameter transitionBarrier: A closure that can be used to bar access to this state. It can trigger an error, redirect to another state or allow the transitions to continue.
      - parameter allowedTransitions: A list of state identifiers for states that can be transitioned to.
      */
-    public init(_ identifier: S,
-                didEnter: DidEnterState<S>? = nil,
-                didExit: DidExitState<S>? = nil,
-                dynamicTransition: DynamicTransition<S>? = nil,
-                transitionBarrier: TransitionBarrier<S>? = nil,
-                canTransitionTo: S...) {
+    public convenience init(_ identifier: S,
+                            didEnter: DidEnterState<S>? = nil,
+                            didExit: DidExitState<S>? = nil,
+                            dynamicTransition: DynamicTransition<S>? = nil,
+                            transitionBarrier: TransitionBarrier<S>? = nil,
+                            canTransitionTo: S...) {
         self.init(identifier,
                   features: [],
                   didEnter: didEnter,

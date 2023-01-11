@@ -4,7 +4,7 @@
 //
 
 /// State machine errors.
-public enum StateMachineError<S>: Error, Sendable where S:StateIdentifier {
+public enum StateMachineError<S>: Error where S:StateIdentifier {
 
     /// Thrown when there is an error configuring the machine.
     case configurationError(String)
