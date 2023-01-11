@@ -215,7 +215,7 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
 
     // MARK: - Subscripts
 
-    subscript(state: S) -> StateConfig<S> {
+    public subscript(state: S) -> StateConfig<S> {
         guard let config = stateConfigs[state] else {
             fatalError("Unknown state \(state)")
         }
