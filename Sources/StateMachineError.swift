@@ -6,20 +6,16 @@
 /// State machine errors.
 public enum StateMachineError<S>: Error where S:StateIdentifier {
 
-    /// Thrown when there is an error configuring the machine.
-    case configurationError(String)
-
     /// Thrown if the machine is asked to transition when in a suspended state.
     case suspended
 
     /// Thrown if a state change is requested to the current state.
     case alreadyInState
 
-    /// Thrown when a transition barrier rejects a transition.
+    /// Thrown when an entry barrier rejects the transition request.
     case transitionDenied
 
-    /// Thrown when the target state is not in the current state's allowed transition list or
-    /// a request has been received to transition from a final state.
+    /// Thrown when the exit barrier returns ``BarrierResponse.disallow`` or the the current state is a final state.
     case illegalTransition
 
     /// Thrown when the requested state for a transition has not been registered with the engine.

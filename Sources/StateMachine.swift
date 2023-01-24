@@ -189,15 +189,18 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
             throw StateMachineError.unknownState(newState)
         }
 
-        switch try currentState.value.preflightTransition(toState: nextState, logger: logger) {
+        switch currentState.value.preflightTransition(toState: nextState, logger: logger) {
+
+        case .allow:
+            logger.trace("Preflight passed")
+            return nextState
 
         case .redirect(to: let redirectState):
             logger.trace("Preflight redirecting to: .\(String(describing: redirectState))")
             return try preflight(toState: redirectState)
 
-        case .allow:
-            logger.trace("Preflight passed")
-            return nextState
+        case .fail(let error):
+            throw error
         }
     }
 

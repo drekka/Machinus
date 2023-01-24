@@ -6,19 +6,8 @@ import Combine
 import Foundation
 @testable import Machinus
 import Nimble
-import os
 import XCTest
 
-let testLog = Logger(subsystem: "au.com.derekclarkson.machinus", category: "TestLog")
-
-enum TestState: StateIdentifier {
-    case aaa
-    case bbb
-    case ccc
-    case background
-    case final
-    case global
-}
 
 extension StateMachine where S: Equatable {
 

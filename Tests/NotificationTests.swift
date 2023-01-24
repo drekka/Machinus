@@ -9,7 +9,7 @@ import XCTest
 
 class NotificationTests: XCTestCase {
 
-    private var stateA: StateConfig<TestState> = StateConfig(.aaa, canTransitionTo: .bbb)
+    private var stateA: StateConfig<TestState> = StateConfig(.aaa, allowedTransitions: .bbb)
     private var stateB: StateConfig<TestState> = StateConfig(.bbb)
     private var stateC: StateConfig<TestState> = StateConfig(.ccc) // Because machines must have 3 states.
 

@@ -25,13 +25,15 @@ extension StateMachineError: Equatable {
     }
 }
 
-extension StateConfig<TestState>.PreflightResponse<TestState>: Equatable {
+extension PreflightResponse<TestState>: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case (.allow, .allow):
             return true
         case (.redirect(let lhsState), .redirect(let rhsState)):
             return lhsState == rhsState
+        case (.fail(let lhsError), .fail(let rhsError)):
+            return lhsError == rhsError
         default:
             return false
         }

@@ -16,16 +16,16 @@ class StateMachineTests: XCTestCase {
         [
             StateConfig<TestState>(.aaa,
                                    didEnter: { _, _ in self.log.append("aaaEnter") },
-                                   didExit: { _, _ in self.log.append("aaaExit") },
-                                   canTransitionTo: .bbb),
+                                   allowedTransitions: .bbb,
+                                   didExit: { _, _ in self.log.append("aaaExit") }),
             StateConfig<TestState>(.bbb,
                                    didEnter: { _, _ in self.log.append("bbbEnter") },
-                                   didExit: { _, _ in self.log.append("bbbExit") },
-                                   canTransitionTo: .ccc),
+                                   allowedTransitions: .ccc,
+                                   didExit: { _, _ in self.log.append("bbbExit") }),
             StateConfig<TestState>(.ccc,
                                    didEnter: { _, _ in self.log.append("cccEnter") },
-                                   didExit: { _, _ in self.log.append("cccExit") },
-                                   canTransitionTo: .aaa),
+                                   allowedTransitions: .aaa,
+                                   didExit: { _, _ in self.log.append("cccExit") }),
         ]
     }()
 
@@ -105,8 +105,8 @@ class StateMachineTests: XCTestCase {
 
     func testTransitionBarrierAllowsTransition() async {
         let machine = StateMachine {
-            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
-            StateConfig<TestState>(.bbb, transitionBarrier: { _ in .allow })
+            StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
+            StateConfig<TestState>(.bbb, entryBarrier: { _ in .allow })
             StateConfig<TestState>(.ccc)
         }
         await machine.testTransition(to: .bbb)
@@ -114,8 +114,8 @@ class StateMachineTests: XCTestCase {
 
     func testTransitionBarrierDeniesTransition() async {
         let machine = StateMachine {
-            StateConfig<TestState>(.aaa, canTransitionTo: .bbb)
-            StateConfig<TestState>(.bbb, transitionBarrier: { _ in .fail })
+            StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
+            StateConfig<TestState>(.bbb, entryBarrier: { _ in .disallow })
             StateConfig<TestState>(.ccc)
         }
         await machine.testTransition(to: .bbb, failsWith: .transitionDenied)
@@ -123,8 +123,8 @@ class StateMachineTests: XCTestCase {
 
     func testTransitionBarrierRedirectsToAnotherState() async {
         let machine = StateMachine {
-            StateConfig<TestState>(.aaa, canTransitionTo: .bbb, .ccc)
-            StateConfig<TestState>(.bbb, transitionBarrier: { _ in .redirect(to: .ccc) })
+            StateConfig<TestState>(.aaa, allowedTransitions: .bbb, .ccc)
+            StateConfig<TestState>(.bbb, entryBarrier: { _ in .redirect(to: .ccc) })
             StateConfig<TestState>(.ccc)
         }
         await machine.testTransition(to: .bbb, redirectsTo: .ccc)
@@ -152,7 +152,7 @@ class StateMachineTests: XCTestCase {
 
     func testDynamicTransition() async {
         let machine = StateMachine {
-            StateConfig<TestState>(.aaa, dynamicTransition: { .bbb }, canTransitionTo: .bbb)
+            StateConfig<TestState>(.aaa, dynamicTransition: { .bbb }, allowedTransitions: .bbb)
             StateConfig<TestState>(.bbb)
             StateConfig<TestState>(.ccc)
         }
@@ -197,11 +197,9 @@ class StateMachineTests: XCTestCase {
         await machine.testTransition(to: .bbb)
         expect(self.log) == ["aaaExit", "bbbEnter"]
 
-        machine[.ccc].didEnter = { _,_ in self.log.append("updated cccEnter")}
+        machine[.ccc].didEnter = { _, _ in self.log.append("updated cccEnter") }
 
         await machine.testTransition(to: .ccc)
         expect(self.log) == ["aaaExit", "bbbEnter", "bbbExit", "updated cccEnter"]
     }
-
-
 }

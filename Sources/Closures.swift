@@ -15,7 +15,7 @@ public typealias DynamicTransition<S> = () -> S where S: StateIdentifier
 ///
 /// When the machine is going to transition to the state, this closure is called to allow or deny the transition, or to
 /// redirect to another state. It is passed the current state as an argument.
-public typealias TransitionBarrier<S> = (S) -> BarrierResponse<S> where S: StateIdentifier
+public typealias Barrier<S> = (S) -> BarrierResponse<S> where S: StateIdentifier
 
 /// An action set on a state that is executed when the machine transitions to the state.
 /// - parameter from: The previous state of the machine.
