@@ -139,6 +139,9 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
                     NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
                 }
 
+                // Finally clear the from state's store.
+                fromState.clearStore()
+
                 self.logger.trace("Transition completed.")
             }
 

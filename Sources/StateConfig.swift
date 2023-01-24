@@ -13,13 +13,13 @@ struct Features: OptionSet {
     #endif
 }
 
-/// Possible responses from a transition barrier.
+/// Possible responses from a barrier.
 public enum BarrierResponse<S> where S: StateIdentifier {
 
     /// Allow the transition to continue.
     case allow
 
-    /// Transition is disallowed. Note that globals bypass this to allow the transition. Use this as the default response from a barrier.
+    /// Transition is disallowed. This should be the default response from all barriers. Note though, that when executing the ``StateConfig<S>.exitBarrier`` a transition to a global state will ignore a ``disallow`` and allow the transition to continue.
     case disallow
 
     /// Fail the transition with an error.
@@ -61,6 +61,10 @@ public final class StateConfig<S> where S: StateIdentifier {
 
     // Used to disallow transitions.
     private var exitBarrier: Barrier<S>
+
+    // Stores data associated with the state. This is to support storing data in the machine
+    // when we cannot use associated values on enums because then the state won't register.
+    private var store: [String: (Any, Bool)] = [:]
 
     // MARK: - Lifecycle
 
@@ -248,7 +252,31 @@ public final class StateConfig<S> where S: StateIdentifier {
                     didExit: nil)
     }
 
+    // MARK: - Subscripts
+
+    /// Gets and sets values in the state's local store.
+    ///
+    /// - parameters:
+    ///   - key: The keys to store the value under.
+    ///   - preserve: If `true` then when the machine exits this state, the value is not cleared from the store.
+    public subscript<T>(key: String, preserve: Bool = false) -> T? {
+        get {
+            store[key]?.0 as? T
+        }
+        set {
+            if let newValue {
+                store[key] = (newValue, preserve)
+            } else {
+                store.removeValue(forKey: key)
+            }
+        }
+    }
+
     // MARK: - Internal
+
+    func clearStore() {
+        store = store.filter { $0.value.1 }
+    }
 
     func preflightTransition(toState: StateConfig<S>, logger: Logger) -> PreflightResponse<S> {
 
