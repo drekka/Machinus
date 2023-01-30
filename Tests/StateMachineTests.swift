@@ -15,17 +15,17 @@ class StateMachineTests: XCTestCase {
     private lazy var loopedStates: [StateConfig<TestState>] = {
         [
             StateConfig<TestState>(.aaa,
-                                   didEnter: { _, _ in self.log.append("aaaEnter") },
+                                   didEnter: { _ in self.log.append("aaaEnter") },
                                    allowedTransitions: .bbb,
-                                   didExit: { _, _ in self.log.append("aaaExit") }),
+                                   didExit: { _ in self.log.append("aaaExit") }),
             StateConfig<TestState>(.bbb,
-                                   didEnter: { _, _ in self.log.append("bbbEnter") },
+                                   didEnter: { _ in self.log.append("bbbEnter") },
                                    allowedTransitions: .ccc,
-                                   didExit: { _, _ in self.log.append("bbbExit") }),
+                                   didExit: { _ in self.log.append("bbbExit") }),
             StateConfig<TestState>(.ccc,
-                                   didEnter: { _, _ in self.log.append("cccEnter") },
+                                   didEnter: { _ in self.log.append("cccEnter") },
                                    allowedTransitions: .aaa,
-                                   didExit: { _, _ in self.log.append("cccExit") }),
+                                   didExit: { _ in self.log.append("cccExit") }),
         ]
     }()
 
@@ -115,7 +115,7 @@ class StateMachineTests: XCTestCase {
     func testTransitionBarrierDeniesTransition() async {
         let machine = StateMachine {
             StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-            StateConfig<TestState>(.bbb, entryBarrier: { _ in .disallow })
+            StateConfig<TestState>(.bbb, entryBarrier: { _ in .deny })
             StateConfig<TestState>(.ccc)
         }
         await machine.testTransition(to: .bbb, failsWith: .transitionDenied)
@@ -197,7 +197,7 @@ class StateMachineTests: XCTestCase {
         await machine.testTransition(to: .bbb)
         expect(self.log) == ["aaaExit", "bbbEnter"]
 
-        machine[.ccc].didEnter = { _, _ in self.log.append("updated cccEnter") }
+        machine[.ccc].didEnter = { _ in self.log.append("updated cccEnter") }
 
         await machine.testTransition(to: .ccc)
         expect(self.log) == ["aaaExit", "bbbEnter", "bbbExit", "updated cccEnter"]

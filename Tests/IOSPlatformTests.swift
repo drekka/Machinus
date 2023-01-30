@@ -20,21 +20,21 @@ import XCTest
             log = []
             machine = StateMachine {
                 StateConfig<TestState>(.aaa,
-                                       didEnter: { _, _ in self.log.append("aaaEnter") },
+                                       didEnter: { _ in self.log.append("aaaEnter") },
                                        allowedTransitions: .bbb, .ccc,
-                                       didExit: { _, _ in self.log.append("aaaExit") })
+                                       didExit: { _ in self.log.append("aaaExit") })
                 StateConfig<TestState>(.bbb,
-                                       didEnter: { _, _ in self.log.append("bbbEnter") },
+                                       didEnter: { _ in self.log.append("bbbEnter") },
                                        allowedTransitions: .ccc,
-                                       didExit: { _, _ in self.log.append("bbbExit") })
+                                       didExit: { _ in self.log.append("bbbExit") })
                 StateConfig<TestState>(.ccc,
                                        entryBarrier: { $0 == .aaa ? .allow : .redirect(to: .aaa) },
-                                       didEnter: { _, _ in self.log.append("cccEnter") },
+                                       didEnter: { _ in self.log.append("cccEnter") },
                                        allowedTransitions: .aaa,
-                                       didExit: { _, _ in self.log.append("cccExit") })
+                                       didExit: { _ in self.log.append("cccExit") })
                 StateConfig<TestState>.background(.background,
-                                                  didEnter: { _, _ in self.log.append("backgroundEnter") },
-                                                  didExit: { _, _ in self.log.append("backgroundExit") })
+                                                  didEnter: { _ in self.log.append("backgroundEnter") },
+                                                  didExit: { _ in self.log.append("backgroundExit") })
             }
             didTransition: { from, to in
                 self.log.append("\(from) -> \(to)")

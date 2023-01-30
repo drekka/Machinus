@@ -19,8 +19,8 @@ public enum BarrierResponse<S> where S: StateIdentifier {
     /// Allow the transition to continue.
     case allow
 
-    /// Transition is disallowed. This should be the default response from all barriers. Note though, that when executing the ``StateConfig<S>.exitBarrier`` a transition to a global state will ignore a ``disallow`` and allow the transition to continue.
-    case disallow
+    /// The transition is disallowed. This should be the default response from all barriers closures. Note though, that when executing the ``StateConfig<S>.exitBarrier``, a transition to a global state will ignore a ``deny`` and allow the transition to continue.
+    case deny
 
     /// Fail the transition with an error.
     case fail(StateMachineError<S>)
@@ -297,7 +297,7 @@ public final class StateConfig<S> where S: StateIdentifier {
         // Check the exit barrier, allowing global states to bypass a ``BarrierResponse.disallow`` response.
         switch exitBarrier(toState.identifier) {
         case .allow: break
-        case .disallow where toState.features.contains(.global): logger.trace("Global transition")
+        case .deny where toState.features.contains(.global): logger.trace("Global transition")
         case .redirect(let redirectState): return .redirect(to: redirectState)
         case .fail(let error): return .fail(error)
         default: return .fail(.illegalTransition) // Non-global and disallow
@@ -308,7 +308,7 @@ public final class StateConfig<S> where S: StateIdentifier {
             logger.trace("Running \(toState) entry barrier")
             switch entryBarrier(identifier) {
             case .fail(let error): return .fail(error)
-            case .disallow: return .fail(.transitionDenied)
+            case .deny: return .fail(.transitionDenied)
             case .allow: return .allow
             case .redirect(to: let toState): return .redirect(to: toState)
             }
@@ -331,7 +331,7 @@ extension Array where Element: StateIdentifier {
 
     func asExitBarrier() -> Barrier<Element> {
         { toState in
-            contains(where: { $0 == toState }) ? .allow : .disallow
+            contains(where: { $0 == toState }) ? .allow : .deny
         }
     }
 }

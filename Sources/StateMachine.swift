@@ -14,6 +14,7 @@ import SwiftUI
 /// The implementation of a state machine.
 public class StateMachine<S>: ObservableObject where S: StateIdentifier {
 
+    // Internal state of the machine.
     private enum State {
         case initializing
         case ready
@@ -32,8 +33,8 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
     private var stateChangeProcess: AnyCancellable?
     private var notificationObservers: [Any] = []
 
-    @Published public var state: S
-    @Published public var error: StateMachineError<S>?
+    @Published private(set) public var state: S
+    @Published private(set) public var error: StateMachineError<S>?
 
     public var postTransitionNotifications = false
 
@@ -126,12 +127,12 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
 
                 // If we are transitioning to the background we don't execute the previous state's `didExit`.
                 if toState != self.backgroundState {
-                    fromState.didExit?(fromStateIdentifier, toStateIdentifier)
+                    fromState.didExit?(toStateIdentifier)
                 }
 
                 // If we are transitioning to the foreground we don't execute the restore state's `didEnter`.
                 if fromState != self.backgroundState {
-                    toState.didEnter?(fromStateIdentifier, toStateIdentifier)
+                    toState.didEnter?(fromStateIdentifier)
                 }
 
                 self.didTransition?(fromStateIdentifier, toStateIdentifier)

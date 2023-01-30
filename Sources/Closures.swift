@@ -19,13 +19,11 @@ public typealias Barrier<S> = (S) -> BarrierResponse<S> where S: StateIdentifier
 
 /// An action set on a state that is executed when the machine transitions to the state.
 /// - parameter from: The previous state of the machine.
-/// - parameter to: The new state of the machine.
-public typealias DidEnterState<S> = (_ from: S, _ to: S) -> Void where S: StateIdentifier
+public typealias DidEnterState<S> = (_ from: S) -> Void where S: StateIdentifier
 
 /// An action set on a state that is executed when the machine transitions away from the state.
-/// - parameter from: The previous state of the machine.
 /// - parameter to: The new state of the machine.
-public typealias DidExitState<S> = (_ from: S, _ to: S) -> Void where S: StateIdentifier
+public typealias DidExitState<S> = (_ to: S) -> Void where S: StateIdentifier
 
 /// Set on the state machine and called after each successful transition.
 ///

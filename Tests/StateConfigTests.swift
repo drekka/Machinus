@@ -52,12 +52,12 @@ class StateConfigTests: XCTestCase {
     }
 
     func testPreflightCustomExitBarrierDisallows() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .disallow })
+        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .deny })
         expect(exitBarrierState.preflightTransition(toState: self.stateB, logger: testLog)) == .fail(.illegalTransition)
     }
 
     func testPreflightCustomExitBarrierDisallowsOverriddenByGlobal() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .disallow })
+        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .deny })
         expect(exitBarrierState.preflightTransition(toState: self.global, logger: testLog)) == .allow
     }
 
@@ -79,7 +79,7 @@ class StateConfigTests: XCTestCase {
 
     func testPreflightToStateEntryBarrierDisallows() throws {
         let currentState = StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-        let entryBarrierState = StateConfig<TestState>(.bbb, entryBarrier: { _ in .disallow })
+        let entryBarrierState = StateConfig<TestState>(.bbb, entryBarrier: { _ in .deny })
         expect(currentState.preflightTransition(toState: entryBarrierState, logger: testLog)) == .fail(.transitionDenied)
     }
 
