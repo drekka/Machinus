@@ -12,11 +12,13 @@ class StateMachineTests: XCTestCase {
 
     private var log: [String]!
 
+    private var machine: StateMachine<TestState>!
+
     private lazy var loopedStates: [StateConfig<TestState>] = {
         [
             StateConfig<TestState>(.aaa,
                                    didEnter: { _ in self.log.append("aaaEnter") },
-                                   allowedTransitions: .bbb,
+                                   allowedTransitions: .bbb, .ccc, .final,
                                    didExit: { _ in self.log.append("aaaExit") }),
             StateConfig<TestState>(.bbb,
                                    didEnter: { _ in self.log.append("bbbEnter") },
@@ -26,12 +28,21 @@ class StateMachineTests: XCTestCase {
                                    didEnter: { _ in self.log.append("cccEnter") },
                                    allowedTransitions: .aaa,
                                    didExit: { _ in self.log.append("cccExit") }),
+            StateConfig<TestState>.global(.global,
+                                          didEnter: { _ in self.log.append("globalEnter") },
+                                          allowedTransitions: .aaa,
+                                          didExit: { _ in self.log.append("globalExit") }),
+            StateConfig<TestState>.final(.final,
+                                         didEnter: { _ in self.log.append("finalEnter") }),
+            StateConfig<TestState>.finalGlobal(.finalGlobal,
+                                               didEnter: { _ in self.log.append("finalGlobalEnter") }),
         ]
     }()
 
     override func setUp() {
         super.setUp()
         log = []
+        machine = StateMachine(name: "Test machine", withStates: loopedStates) { self.log.append("\($0) -> \($1)") }
     }
 
     // MARK: - Lifecycle
@@ -48,15 +59,10 @@ class StateMachineTests: XCTestCase {
         _ = StateMachine<TestState>(withStates: StateConfig(.aaa), StateConfig(.bbb), StateConfig(.ccc))
     }
 
-    func testInitializerWithArray() {
-        _ = StateMachine<TestState>(withStates: [StateConfig(.aaa), StateConfig(.bbb), StateConfig(.ccc)])
-    }
-
     func testReset() async {
-        let machine = StateMachine(withStates: loopedStates)
         await machine.testTransition(to: .bbb)
         await machine.testResets(to: .aaa)
-        expect(self.log) == ["aaaExit", "bbbEnter"]
+        expect(self.log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
     }
 
     // MARK: - Transition to
@@ -67,139 +73,109 @@ class StateMachineTests: XCTestCase {
         expect(self.log) == ["aaaExit", "bbbEnter"]
     }
 
-    func testTransitionToUnregisteredStateFails() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>(.ccc)
-        }
-        await machine.testTransition(to: .final, failsWith: .unknownState(.final))
+    func testTransitionToGlobal() async {
+        let machine = StateMachine(withStates: loopedStates)
+        await machine.testTransition(to: .global)
+        expect(self.log) == ["aaaExit", "globalEnter"]
     }
 
-    func testTransitionClosureSequencing() async {
-        let machine = StateMachine(withStates: loopedStates) { self.log.append("\($0) -> \($1)") }
+    func testTransitionToFinalGlobal() async {
+        let machine = StateMachine(withStates: loopedStates)
+        await machine.testTransition(to: .finalGlobal)
+        expect(self.log) == ["aaaExit", "finalGlobalEnter"]
+    }
 
-        await machine.testTransition(to: .bbb)
+    func testTransitionUsingDynamicClosure() async {
+        machine[.aaa].dynamicTransition = { .bbb }
+        await machine.testDynamicTransition(to: .bbb)
         expect(self.log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
+    }
 
-        await machine.testTransition(to: .ccc)
-        expect(self.log) == ["aaaExit", "bbbEnter", "aaa -> bbb", "bbbExit", "cccEnter", "bbb -> ccc"]
+    func testTransitionUsingDynamicClosureNoClosureError() async {
+        await machine.testDynamicTransition(failsWith: .noDynamicClosure(.aaa))
     }
 
     // MARK: - Preflight failures
 
-    func testTransitionToSameStateGeneratesErrorAndDoesntCallClosures() async {
-        let machine = StateMachine(withStates: loopedStates)
+    func testPreflightSameStateError() async {
         await machine.testTransition(to: .aaa, failsWith: .alreadyInState)
-        expect(self.log) == []
     }
 
-    func testTransitionToStateNotInAllowedListGeneratesError() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>(.ccc)
-        }
+    func testPreflightFinalStateError() async {
+        await machine.testTransition(to: .final)
         await machine.testTransition(to: .ccc, failsWith: .illegalTransition)
     }
 
-    func testTransitionBarrierAllowsTransition() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-            StateConfig<TestState>(.bbb, entryBarrier: { _ in .allow })
-            StateConfig<TestState>(.ccc)
-        }
-        await machine.testTransition(to: .bbb)
+    func testPreflightToUnknownStateError() async {
+        await machine.testTransition(to: .unregistered, failsWith: .unknownState(.unregistered))
     }
 
-    func testTransitionBarrierDeniesTransition() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-            StateConfig<TestState>(.bbb, entryBarrier: { _ in .deny })
-            StateConfig<TestState>(.ccc)
-        }
+    func testPreflightStateNotInAllowedListError() async {
+        await machine.testTransition(to: .bbb)
+        await machine.testTransition(to: .aaa, failsWith: .illegalTransition)
+    }
+
+    // MARK: - Exit barrier
+
+    func testPreflightExitBarrierAllows() async {
+        machine[.aaa].exitBarrier = { _ in .allow }
+        await machine.testTransition(to: .bbb)
+        expect(self.log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
+    }
+
+    func testPreflightExitBarrierDeniesError() async {
+        machine[.aaa].exitBarrier = { _ in .deny }
+        await machine.testTransition(to: .bbb, failsWith: .illegalTransition)
+    }
+
+    func testPreflightExitBarrierDeniesButAllowsGlobal() async {
+        machine[.aaa].exitBarrier = { _ in .deny }
+        await machine.testTransition(to: .global)
+        expect(self.log) == ["aaaExit", "globalEnter", "aaa -> global"]
+    }
+
+    func testPreflightExitBarrierRedirects() async {
+        machine[.aaa].exitBarrier = { _ in .redirect(to: .ccc) }
+        await machine.testTransition(to: .bbb, redirectsTo: .ccc)
+        expect(self.log) == ["aaaExit", "cccEnter", "aaa -> ccc"]
+    }
+
+    func testPreflightExitBarrierRedirectsToUnregisteredStateError() async {
+        machine[.aaa].exitBarrier = { _ in .redirect(to: .unregistered) }
+        await machine.testTransition(to: .bbb, failsWith: .unknownState(.unregistered))
+    }
+
+    func testPreflightExitBarrierFails() async {
+        machine[.aaa].exitBarrier = { _ in .fail(.suspended) }
+        await machine.testTransition(to: .bbb, failsWith: .suspended)
+    }
+
+    // MARK: - Entry barrier
+
+    func testPreflightEntryBarrierAllows() async {
+        machine[.bbb].entryBarrier = { _ in .allow }
+        await machine.testTransition(to: .bbb)
+        expect(self.log) == ["aaaExit", "bbbEnter", "aaa -> bbb"]
+    }
+
+    func testPreflightEntryBarrierDeniesError() async {
+        machine[.bbb].entryBarrier = { _ in .deny }
         await machine.testTransition(to: .bbb, failsWith: .transitionDenied)
     }
 
-    func testTransitionBarrierRedirectsToAnotherState() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa, allowedTransitions: .bbb, .ccc)
-            StateConfig<TestState>(.bbb, entryBarrier: { _ in .redirect(to: .ccc) })
-            StateConfig<TestState>(.ccc)
-        }
+    func testPreflightEntryBarrierRedirects() async {
+        machine[.bbb].entryBarrier = { _ in .redirect(to: .ccc) }
         await machine.testTransition(to: .bbb, redirectsTo: .ccc)
+        expect(self.log) == ["aaaExit", "cccEnter", "aaa -> ccc"]
     }
 
-    func testTransitionFromFinalGeneratesError() async {
-        let machine = StateMachine {
-            StateConfig<TestState>.final(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>(.ccc)
-        }
-        await machine.testTransition(to: .bbb, failsWith: .illegalTransition)
+    func testPreflightEntryBarrierRedirectsToUnregisteredStateError() async {
+        machine[.bbb].entryBarrier = { _ in .redirect(to: .unregistered) }
+        await machine.testTransition(to: .bbb, failsWith: .unknownState(.unregistered))
     }
 
-    func testTransitionFromFinalGlobalGeneratesError() async {
-        let machine = StateMachine {
-            StateConfig<TestState>.finalGlobal(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>(.ccc)
-        }
-        await machine.testTransition(to: .bbb, failsWith: .illegalTransition)
-    }
-
-    // MARK: - Dynamic transitions
-
-    func testDynamicTransition() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa, dynamicTransition: { .bbb }, allowedTransitions: .bbb)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>(.ccc)
-        }
-        await machine.testDynamicTransition(to: .bbb)
-    }
-
-    func testDynamicTransitionNotDefinedFailure() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>(.ccc)
-        }
-        await machine.testDynamicTransition(failsWith: .noDynamicClosure(.aaa))
-    }
-
-    // MARK: - Global states
-
-    func testTransitionToGlobalAlwaysWorks() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>.global(.global)
-        }
-        await machine.testTransition(to: .global)
-    }
-
-    func testTransitionToFinalGlobal() async {
-        let machine = StateMachine {
-            StateConfig<TestState>(.aaa)
-            StateConfig<TestState>(.bbb)
-            StateConfig<TestState>.finalGlobal(.global)
-        }
-        await machine.testTransition(to: .global)
-    }
-
-    // MARK: - State config changes
-
-    func testChangingStateConfigClosure() async {
-
-        let machine = StateMachine(withStates: loopedStates)
-
-        await machine.testTransition(to: .bbb)
-        expect(self.log) == ["aaaExit", "bbbEnter"]
-
-        machine[.ccc].didEnter = { _ in self.log.append("updated cccEnter") }
-
-        await machine.testTransition(to: .ccc)
-        expect(self.log) == ["aaaExit", "bbbEnter", "bbbExit", "updated cccEnter"]
+    func testPreflightEntryBarrierFails() async {
+        machine[.bbb].entryBarrier = { _ in .fail(.suspended) }
+        await machine.testTransition(to: .bbb, failsWith: .suspended)
     }
 }

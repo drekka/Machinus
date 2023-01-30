@@ -13,4 +13,6 @@ enum TestState: StateIdentifier {
     case background
     case final
     case global
+    case finalGlobal
+    case unregistered
 }

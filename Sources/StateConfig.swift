@@ -41,6 +41,7 @@ enum PreflightResponse<S> where S: StateIdentifier {
 /**
  Defines the setup of an individual state.
  */
+@dynamicMemberLookup
 public final class StateConfig<S> where S: StateIdentifier {
 
     /// The unique identifier used to define this state. This will be used in all `Equatable` tests.
@@ -60,7 +61,7 @@ public final class StateConfig<S> where S: StateIdentifier {
     public var dynamicTransition: DynamicTransition<S>?
 
     // Used to disallow transitions.
-    private var exitBarrier: Barrier<S>
+    var exitBarrier: Barrier<S>
 
     // Stores data associated with the state. This is to support storing data in the machine
     // when we cannot use associated values on enums because then the state won't register.
@@ -86,7 +87,6 @@ public final class StateConfig<S> where S: StateIdentifier {
                             allowedTransitions: S...,
                             didExit: DidExitState<S>? = nil) {
         self.init(identifier,
-                  features: [],
                   entryBarrier: entryBarrier,
                   didEnter: didEnter,
                   dynamicTransition: dynamicTransition,
@@ -183,13 +183,12 @@ public final class StateConfig<S> where S: StateIdentifier {
                               dynamicTransition: DynamicTransition<S>? = nil,
                               allowedTransitions: S...,
                               didExit: DidExitState<S>? = nil) -> StateConfig<S> {
-        StateConfig(identifier,
-                    features: .global,
-                    entryBarrier: entryBarrier,
-                    didEnter: didEnter,
-                    dynamicTransition: dynamicTransition,
-                    exitBarrier: allowedTransitions.asExitBarrier(),
-                    didExit: didExit)
+        StateConfig.global(identifier,
+                           entryBarrier: entryBarrier,
+                           didEnter: didEnter,
+                           dynamicTransition: dynamicTransition,
+                           exitBarrier: allowedTransitions.asExitBarrier(),
+                           didExit: didExit)
     }
 
     /// Global state factory.
@@ -254,8 +253,20 @@ public final class StateConfig<S> where S: StateIdentifier {
 
     // MARK: - Subscripts
 
+    /// Gets and sets values in the state's local store using dynamic member lookup.
+    ///
+    /// Data stored via this technique is not preserved when the machine leaves the state.
+    /// - parameters:
+    ///   - key: The keys to store the value under.
+    public subscript<T>(dynamicMember key: String) -> T? {
+        get { self[key] }
+        set { self[key] = newValue }
+    }
+
     /// Gets and sets values in the state's local store.
     ///
+    /// Data stored is by default wiped from the store when the machine leaves the state. However if ``preserve`` is set to true
+    /// the data is not cleared.
     /// - parameters:
     ///   - key: The keys to store the value under.
     ///   - preserve: If `true` then when the machine exits this state, the value is not cleared from the store.
@@ -275,46 +286,7 @@ public final class StateConfig<S> where S: StateIdentifier {
     // MARK: - Internal
 
     func clearStore() {
-        store = store.filter { $0.value.1 }
-    }
-
-    func preflightTransition(toState: StateConfig<S>, logger: Logger) -> PreflightResponse<S> {
-
-        logger.trace("Preflighting transition \(self) -> \(toState)")
-
-        // If the state is the same state then error.
-        if toState == self {
-            logger.trace("Already in state \(self)")
-            return .fail(.alreadyInState)
-        }
-
-        // Error if this is a final state.
-        if features.contains(.final) {
-            logger.error("Final state, cannot transition out")
-            return .fail(.illegalTransition)
-        }
-
-        // Check the exit barrier, allowing global states to bypass a ``BarrierResponse.disallow`` response.
-        switch exitBarrier(toState.identifier) {
-        case .allow: break
-        case .deny where toState.features.contains(.global): logger.trace("Global transition")
-        case .redirect(let redirectState): return .redirect(to: redirectState)
-        case .fail(let error): return .fail(error)
-        default: return .fail(.illegalTransition) // Non-global and disallow
-        }
-
-        // Check the target state's entry barrier.
-        if let entryBarrier = toState.entryBarrier {
-            logger.trace("Running \(toState) entry barrier")
-            switch entryBarrier(identifier) {
-            case .fail(let error): return .fail(error)
-            case .deny: return .fail(.transitionDenied)
-            case .allow: return .allow
-            case .redirect(to: let toState): return .redirect(to: toState)
-            }
-        }
-
-        return .allow
+        store = store.filter(\.value.1)
     }
 }
 

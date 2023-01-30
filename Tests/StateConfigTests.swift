@@ -9,12 +9,9 @@ import XCTest
 
 class StateConfigTests: XCTestCase {
 
-    private var stateA: StateConfig<TestState> = StateConfig(.aaa, allowedTransitions: .bbb, .ccc)
+    private var stateA: StateConfig<TestState> = StateConfig(.aaa)
     private var stateAA: StateConfig<TestState> = StateConfig(.aaa)
     private var stateB: StateConfig<TestState> = StateConfig(.bbb)
-    private var stateC: StateConfig<TestState> = StateConfig(.ccc)
-    private var global: StateConfig<TestState> = StateConfig.global(.global, allowedTransitions: .aaa)
-    private var final: StateConfig<TestState> = StateConfig.final(.final)
 
     // MARK: - Custom debug string convertable
 
@@ -30,68 +27,28 @@ class StateConfigTests: XCTestCase {
         expect(self.stateA == self.stateB) == false
     }
 
-    // MARK: - Factories
+    // MARK: - State storage
 
-    // MARK: - Pre-flight
+    func testStorageStoringValues() {
+        stateA.abc = "abc"
+        stateA.def = 5
 
-    func testPreflightAllowsTransition() throws {
-        expect(self.stateA.preflightTransition(toState: self.stateB, logger: testLog)) == .allow
+        expect(self.stateA.abc) == "abc"
+        expect(self.stateA.def) == 5
     }
 
-    func testPreflightSameStateFails() {
-        expect(self.stateA.preflightTransition(toState: self.stateA, logger: testLog)) == .fail(.alreadyInState)
+    func testStorageClearingValues() {
+        stateA["abc", true] = "abc"
+        stateA.def = 5
+
+        expect(self.stateA.abc) == "abc"
+        expect(self.stateA.def) == 5
+
+        stateA.clearStore()
+
+        expect(self.stateA.abc) == "abc"
+        expect(self.stateA.def as String?).to(beNil())
     }
 
-    func testPreflightFinalStateTransitionFails() {
-        expect(self.final.preflightTransition(toState: self.stateA, logger: testLog)) == .fail(.illegalTransition)
-    }
 
-    func testPreflightCustomExitBarrierAllows() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .allow })
-        expect(exitBarrierState.preflightTransition(toState: self.stateB, logger: testLog)) == .allow
-    }
-
-    func testPreflightCustomExitBarrierDisallows() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .deny })
-        expect(exitBarrierState.preflightTransition(toState: self.stateB, logger: testLog)) == .fail(.illegalTransition)
-    }
-
-    func testPreflightCustomExitBarrierDisallowsOverriddenByGlobal() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .deny })
-        expect(exitBarrierState.preflightTransition(toState: self.global, logger: testLog)) == .allow
-    }
-
-    func testPreflightCustomExitBarrierRedirects() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .redirect(to: .bbb) })
-        expect(exitBarrierState.preflightTransition(toState: self.stateB, logger: testLog)) == .redirect(to: .bbb)
-    }
-
-    func testPreflightCustomExitBarrierFails() throws {
-        let exitBarrierState = StateConfig<TestState>(.aaa, exitBarrier: { _ in .fail(.suspended) })
-        expect(exitBarrierState.preflightTransition(toState: self.stateB, logger: testLog)) == .fail(.suspended)
-    }
-
-    func testPreflightToStateEntryBarrierAllows() throws {
-        let currentState = StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-        let entryBarrierState = StateConfig<TestState>(.bbb, entryBarrier: { _ in .allow })
-        expect(currentState.preflightTransition(toState: entryBarrierState, logger: testLog)) == .allow
-    }
-
-    func testPreflightToStateEntryBarrierDisallows() throws {
-        let currentState = StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-        let entryBarrierState = StateConfig<TestState>(.bbb, entryBarrier: { _ in .deny })
-        expect(currentState.preflightTransition(toState: entryBarrierState, logger: testLog)) == .fail(.transitionDenied)
-    }
-
-    func testPreflightToStateEntryBarrierFails() throws {
-        let currentState = StateConfig<TestState>(.aaa, allowedTransitions: .bbb)
-        let entryBarrierState = StateConfig<TestState>(.bbb, entryBarrier: { _ in .fail(.suspended) })
-        expect(currentState.preflightTransition(toState: entryBarrierState, logger: testLog)) == .fail(.suspended)
-    }
-
-    func testPreflightToStateEntryBarrierRedirects() throws {
-        let currentState = StateConfig<TestState>(.aaa, allowedTransitions: .bbb, .ccc)
-        let entryBarrierState = StateConfig<TestState>(.bbb, entryBarrier: { _ in .redirect(to: .ccc) })
-        expect(currentState.preflightTransition(toState: entryBarrierState, logger: testLog)) == .redirect(to: .ccc)
-    }
 }

@@ -9,7 +9,7 @@ import Nimble
 import XCTest
 
 
-extension StateMachine where S: Equatable {
+extension StateMachine where S: StateIdentifier {
 
     // MARK: - Convenience test functions
 
@@ -49,22 +49,28 @@ extension StateMachine where S: Equatable {
         var cancellable: AnyCancellable?
         await withCheckedContinuation { success in
             cancellable = publisher.filter {
+                // Ignore anything that's not the value we want.
+                print("🫥 Received \($0)")
                 return $0 == expectedValue
             }
             .timeout(.seconds(seconds), scheduler: DispatchQueue.main)
             .sink { _ in
-                if let optionalValue = expectedValue as? StateMachineError<S>?, case .some(let wrappedValue) = optionalValue {
-                    fail("Timeout waiting \(seconds) for \(wrappedValue).", file: file, line: line)
+                if let error = expectedValue as? StateMachineError<S>?, let error {
+                    fail("Timeout waiting \(seconds) for StateMachineError.\(error).", file: file, line: line)
                 } else {
                     fail("Timeout waiting \(seconds) for \(expectedValue).", file: file, line: line)
                 }
                 success.resume()
             }
                 receiveValue: { _ in
+                    // Got our value.
                 success.resume()
             }
+
+            // trigger the change.
             transition()
         }
+
         cancellable?.cancel()
     }
 }

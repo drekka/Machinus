@@ -4,7 +4,7 @@
 //
 
 /// State machine errors.
-public enum StateMachineError<S>: Error where S:StateIdentifier {
+public enum StateMachineError<S>: Error where S: StateIdentifier {
 
     /// Thrown if the machine is asked to transition when in a suspended state.
     case suspended
@@ -27,4 +27,15 @@ public enum StateMachineError<S>: Error where S:StateIdentifier {
     /// Wraps an unexpected error.
     case unexpectedError(Error)
 
+    var localizedDescription: String {
+        switch self {
+        case .suspended: return "The machine is suspended"
+        case .alreadyInState: return "Maching is already in the requested state"
+        case .transitionDenied: return "Transition denighed by barrier"
+        case .illegalTransition: return "Transition not allowed"
+        case .unknownState(let state): return "Unknown state \(state)"
+        case .noDynamicClosure(let state): return "No dynamic closure set on state \(state)"
+        case .unexpectedError(let error): return "Unexpected error \(error.localizedDescription)"
+        }
+    }
 }

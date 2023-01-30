@@ -33,8 +33,8 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
     private var stateChangeProcess: AnyCancellable?
     private var notificationObservers: [Any] = []
 
-    @Published private(set) public var state: S
-    @Published private(set) public var error: StateMachineError<S>?
+    @Published public private(set) var state: S
+    @Published public private(set) var error: StateMachineError<S>?
 
     public var postTransitionNotifications = false
 
@@ -107,10 +107,17 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
                 guard let self else { return }
 
                 // Abort if the machine is setting up.
-                if case .initializing = self.machineState { return }
+                if case .initializing = self.machineState {
+                    return
+                }
 
                 let fromStateIdentifier = fromState.identifier
                 let toStateIdentifier = toState.identifier
+
+                // ensure the from state's data is cleared.
+                defer {
+                    fromState.clearStore()
+                }
 
                 // Set the state
                 self.logger.trace("Transitioning to \(toState)")
@@ -119,7 +126,7 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
                     self.error = nil
                 }
 
-                // Avoid calling closures if resetting.
+                // IF resetting we don't call closures.
                 if case .resetting = self.machineState {
                     self.logger.trace("Resetting, skipping closures")
                     return
@@ -140,9 +147,6 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
                     NotificationCenter.default.postStateChange(machine: self, oldState: fromStateIdentifier)
                 }
 
-                // Finally clear the from state's store.
-                fromState.clearStore()
-
                 self.logger.trace("Transition completed.")
             }
 
@@ -161,7 +165,6 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
 
     public func transition() {
         execute {
-            try self.canTransition()
             self.logger.trace("Executing dynamic transition")
             guard let dynamicTransition = self.currentState.value.dynamicTransition else {
                 throw StateMachineError.noDynamicClosure(self.state)
@@ -173,40 +176,11 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
 
     public func transition(to state: S) {
         execute {
-            try self.canTransition()
             self.currentState.value = try self.preflight(toState: state)
         }
     }
 
     // MARK: - Transition sequence
-
-    private func canTransition() throws {
-        if case .background = machineState {
-            logger.error("Machine in background. Cannot execute transition request.")
-            throw StateMachineError<S>.suspended
-        }
-    }
-
-    private func preflight(toState newState: S) throws -> StateConfig<S> {
-
-        guard let nextState = stateConfigs[newState] else {
-            throw StateMachineError.unknownState(newState)
-        }
-
-        switch currentState.value.preflightTransition(toState: nextState, logger: logger) {
-
-        case .allow:
-            logger.trace("Preflight passed")
-            return nextState
-
-        case .redirect(to: let redirectState):
-            logger.trace("Preflight redirecting to: .\(String(describing: redirectState))")
-            return try preflight(toState: redirectState)
-
-        case .fail(let error):
-            throw error
-        }
-    }
 
     private func execute(transition: @escaping () throws -> Void) {
         do {
@@ -220,6 +194,89 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
         }
     }
 
+    private func preflight(toState requestedState: S) throws -> StateConfig<S> {
+        let requestedStateConfig = try config(for: requestedState)
+        let newState = try preflightExit(fromState: currentState.value, toState: requestedStateConfig)
+        return try preflightEntry(fromState: currentState.value, toState: newState)
+    }
+
+    private func preflightExit(fromState: StateConfig<S>, toState: StateConfig<S>) throws -> StateConfig<S> {
+
+        logger.trace("Preflighting exit from \(fromState)")
+
+        if case .background = machineState {
+            logger.error("Machine in background. Cannot execute transition request.")
+            throw StateMachineError<S>.suspended
+        }
+
+        // If the state is the same state then error.
+        if fromState == toState {
+            logger.trace("Already in state \(fromState)")
+            throw StateMachineError<S>.alreadyInState
+        }
+
+        // Error if this is a final state.
+        if fromState.features.contains(.final) {
+            logger.error("Final state, cannot transition out")
+            throw StateMachineError<S>.illegalTransition
+        }
+
+        // Check the exit barrier, allowing global states to bypass a ``BarrierResponse.disallow`` response.
+        switch fromState.exitBarrier(toState.identifier) {
+
+        case .allow:
+            return toState
+
+        case .deny where toState.features.contains(.global):
+            logger.trace("Global transition")
+            return toState
+
+        case .deny:
+            throw StateMachineError<S>.illegalTransition
+
+        case .redirect(let redirectState):
+            logger.trace("Preflight exit redirecting to: .\(String(describing: redirectState))")
+            return try config(for: redirectState)
+
+        case .fail(let error):
+            throw error
+        }
+    }
+
+    private func preflightEntry(fromState: StateConfig<S>, toState: StateConfig<S>) throws -> StateConfig<S> {
+
+        logger.trace("Preflighting entry to \(toState)")
+
+        // Check the target state's entry barrier.
+        guard let entryBarrier = toState.entryBarrier else {
+            return toState
+        }
+
+        logger.trace("Running \(toState) entry barrier")
+        switch entryBarrier(fromState.identifier) {
+
+        case .fail(let error):
+            throw error
+
+        case .deny:
+            throw StateMachineError<S>.transitionDenied
+
+        case .allow:
+            return toState
+
+        case .redirect(to: let redirectState):
+            logger.trace("Preflight entry redirecting to: .\(String(describing: redirectState))")
+            return try preflightEntry(fromState: fromState, toState: try config(for: redirectState))
+        }
+    }
+
+    private func config(for state: S) throws -> StateConfig<S> {
+        guard let config = stateConfigs[state] else {
+            throw StateMachineError<S>.unknownState(state)
+        }
+        return config
+    }
+
     // MARK: - Subscripts
 
     public subscript(state: S) -> StateConfig<S> {
@@ -229,32 +286,36 @@ public class StateMachine<S>: ObservableObject where S: StateIdentifier {
         return config
     }
 
-    // MARK: - iOS/tvOS backgrounding
+    #if os(iOS) || os(tvOS)
 
-    private func enterBackground() {
-        execute {
+        // MARK: - iOS/tvOS backgrounding
 
-            if case .background = self.machineState {
-                return
+        private func enterBackground() {
+            execute {
+
+                if case .background = self.machineState {
+                    return
+                }
+
+                self.logger.trace("iOS platform processing background notification, switching to \(self.backgroundState)")
+                let restoreState = self.currentState.value
+                self.currentState.value = self.backgroundState
+                self.machineState = .background(restoreState)
             }
-
-            self.logger.trace("iOS platform processing background notification, switching to \(self.backgroundState)")
-            let restoreState = self.currentState.value
-            self.currentState.value = self.backgroundState
-            self.machineState = .background(restoreState)
         }
-    }
 
-    private func returnToForeGround() {
-        execute {
+        private func returnToForeGround() {
+            execute {
 
-            guard case .background(let restoreState) = self.machineState else {
-                return
+                guard case .background(let restoreState) = self.machineState else {
+                    return
+                }
+
+                self.logger.trace("iOS platform processing foreground notification, restoring state \(restoreState)")
+                self.machineState = .ready
+                self.currentState.value = restoreState
             }
-
-            self.logger.trace("iOS platform processing foreground notification, restoring state \(restoreState)")
-            self.machineState = .ready
-            self.currentState.value = restoreState
         }
-    }
+
+    #endif
 }

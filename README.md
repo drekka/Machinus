@@ -132,34 +132,68 @@ As the [Quick guide](#quick-guide) shows, states are configured using the **`Sta
 
 ## State config parameters
 
-Configuring a state can involve as little as one or two parameters, or quite a few. Here is a list of all the parameters that can be passed.The order follows the order in which they are used during a transition.
+Configuring a state can involve as little as one or two parameters, or quite a few. The following are all the parameters that can be specified. It follows the order in which they are used during a transition.
 
-* **State identifier** (required) - The unique identifier of the state. `.loggedIn` in the above example.
+<details><summary><strong>State identifier</strong> (required)</summary>
 
-* **entryBarrier** (optional) - If defined, is called before a transition _**to**_ this state to determine if it should be allowed. It is passed the state that the machine is about to transition from and can return:
-    * **`.allow`** - Allow the transition to occur.
-    * **`.deny`** - Deny the transition, stopping it from occurring with a `StateMachineError.transitionDenied` error.
-    * **`.redirect(to:S)`** - Redirect to another state.
-    * **`.fail(StateMachineError)`** - Fail the transition with the specified error.
+The unique identifier of the state. `.loggedIn` in the above example.
 
-* **didEnter** (optional) - Executed when the machine transitions to this state. Is passed the state transitioned from.
+</details>
 
-* **dynamicTransition** (optional) - Can be executed to decide what state to transition to.
+<details><summary><code>entryBarrier</code> (optional)</summary>
 
-* **exitBarrier** (required) - The `exitBarrier`, is called before a transition _**from**_ this state to determine if it should be allowed. it is passed the state to be transitioned to and can return:
-    * **`.allow`** - Allow the transition to occur.
-    * **`.deny`** - Deny the transition, stopping it from occurring with a `StateMachineError.transitionDenied` error. 
+If defined, is called before a transition _**to**_ this state to determine if it should be allowed. It is passed the state that the machine is about to transition from and can return:
+
+* **`.allow`** - Allow the transition to occur.
+
+* **`.deny`** - Deny the transition, stopping it from occurring with a `StateMachineError.transitionDenied` error.
+* **`.redirect(to:S)`** - Redirect to another state.
+* **`.fail(StateMachineError)`** - Fail the transition with the specified error.
+
+</details>
+
+<details><summary><code>didEnter</code> (optional)</summary>
+
+Executed when the machine transitions to this state. Is passed the state transitioned from.
+
+</details>
+
+<details><summary><code>dynamicTransition</code> (optional)</summary>
+
+Can be executed to programmatically decide which state to transition to. It should return the desired state.
+
+</details>
+
+<details><summary><code>exitBarrier</code> (required)</summary>
+
+An `exitBarrier` is called before a transition _**from**_ this state to determine if it should be allowed. It is passed the state to be transitioned to and can return:
+
+* **`.allow`** - Allow the transition to occur.
+
+* **`.deny`** - Deny the transition, stopping it from occurring with a `StateMachineError.transitionDenied` error. 
       >Note that if the state being transitioned to is a [global state](#global-states) then this will be ignored and the transition allowed.
-    * **`.redirect(to:S)`** - Redirect to another state.
-    * **`.fail(StateMachineError)`** - Fail the transition with the specified error.
 
-* or **allowedTransitions** (optional) - A list of states that this state can transition to. If a transition is requested to a state not in this list, a `StateMachineError.illegalTransition` error will be thrown. 
+* **`.redirect(to:S)`** - Redirect to another state.
 
-  > If a `allowedTransitions` list is passed, it's actually converted into an `exitBarrier` behind the scenes. Also if neither a `exitBarrier` or a `allowedTransitions` list is specified, then a simple barrier is built that denies all transitions.
+* **`.fail(StateMachineError)`** - Fail the transition with the specified error.
 
-* **didExit** (optional) - Executed when the machine leaves this state. Is passed the state the machine has transitioned to.
+</details>
 
-> Whilst it's possible to request a transition change in one of the callbacks, you should be careful about doing it. Any nested transition request will be run immediately and change the state  of the machine immediately. Further closures for the current change will still be run and passed the correct states, however the actual state of the machine will have moved on. So the recommendation is that if you do need to do this, you queue the new transition so the current transition gets to finish before the new one is executed. 
+<details><summary>... or <code>allowedTransitions</code> (optional)</summary>
+
+A list of states that this state can transition to. If a transition is requested to a state not in this list, a `StateMachineError.illegalTransition` error will be thrown. 
+
+`allowedTransitions` lists are actually converted into an `exitBarrier` behind the scenes. If neither a `exitBarrier` or a `allowedTransitions` list is specified, then a simple barrier is built that denies all transitions.
+
+</details>
+
+<details><summary><code>didExit</code> (optional)</summary>
+
+Executed when the machine leaves this state. Is passed the state the machine has transitioned to.
+
+</details>
+
+_Warning: Whilst it's possible to request a transition change in one of the callbacks, you should be careful about doing so. Any nested transition request will be run immediately and change the state  of the machine immediately. Further closures for the current change will still be run and passed the correct states, however the actual state of the machine will have moved on. So the recommendation is that if you do need to do this, you queue the new transition so the current transition gets to finish before the new one is executed._
 
 ## Standard states
 
@@ -311,8 +345,7 @@ As you can see there in a subscript on the machine that provides access to the s
 
 `StateMachine<S>` has these properties and functions:
 
-<details>
-<summary> **`@Published var state: S `** </summary>
+<details><summary><code>@Published var state: S</code></summary>
 
 Returns the current state of the machine. Because states implement `StateIdentifier` which is an extension of `Hashable` they are easily comparable using standard operators.
 
@@ -322,33 +355,41 @@ await machine.state == .initialising // = true
 
 </details>
 
-* **`@Published var state: S `** 
+<details><summary><code>@Published var error: StateMachineError&lt;S&gt;</code></summary>
 
-   Returns the current state of the machine. Because states implement `StateIdentifier` which is an extension of `Hashable` they are easily comparable using standard operators.
+A second publisher that produces errors. You will need to listen to this publisher to receive any errors that occur.   
 
-   ```swift
-   await machine.state == .initialising // = true
-   ```
+</details>
 
-* **`@Published var error: StateMachineError<S> `** 
-   
-   A second publisher that produces errors. You will need to listen to this publisher to receive any errors that occur.   
+<details><summary><code>var postTransitionNotifications: Bool</code></summary>
 
-* **`var postTransitionNotifications: Bool`**
+When set to true, every time a transition is successful a matching notification is posted. This allows code that is far away from the machine to still receive transition events. *See [Listening to transition notifications](#listening-to-transition-notifications).*
 
-    When set to true, every time a transition is successful a matching notification is posted. This allows code that is far away from the machine to still receive transition events. *See [Listening to transition notifications](#listening-to-transition-notifications).*
+</details>
 
-* **`func reset()`**
+<details><summary><code>func reset()</code></summary>
 
-    Resets the machine back to it's initial state. *See [Resetting the engine](#resetting-the-engine).*
+Resets the machine back to it's initial state. *See [Resetting the engine](#resetting-the-engine).*
 
-* **`func transition()`**
+</details>
 
-    Performs a [Dynamic transition](#dynamic-transitions).
+<details><summary><code>func transition()</code></summary>
 
-* **`func transition(to state: S)`**
+Performs a [Dynamic transition](#dynamic-transitions).
 
-    Performs a [manual transition](#manual-transitions).
+</details>
+
+<details><summary><code>func transition(to state: S)</code></summary>
+
+Performs a [manual transition](#manual-transitions).
+
+</details>
+
+<details><summary><code>subscript(state: S) -&gt; StateConfig&lt;S&gt;</code></summary>
+
+Provides access to a state's config to allow changes to be made after it has been registered. Mostly for adding closures after swift has set all of a classes properties during initialisation.
+
+</details>
 
 # Transitions
 
@@ -360,17 +401,19 @@ The idea of '**transitioning**' a machine from one state to another sounds like 
 
 Preflight is where the transition request is checked to ensure it is valid from the machine's point of view. It can fail the transition for any of the following reasons:
 
-* The requerted state is not a known registered state. Throws `StateMachineError.unknownState(S)`.
+* The requested state is not a known registered state. Throws `StateMachineError.unknownState(S)`.
 
 * Unless a global state, the requested state has failed to pass the `exitBarrier` or does not exist in the list of `allowedTransitions` states. Throws `StateMachineError.illegalTransition`.
 
-* The requested state's `extryBarrier` has denied the transition with a `.deny` response. Throws a `StateMachineError.transitionDenied`.
+* The requested state's `entryBarrier` has denied the transition with a `.deny` response or some other error. Throws a `StateMachineError.transitionDenied` or `StateMachineError.unexpectedError(Error)`.
 
 * The new state and the old state are the same. Throws a `StateMachineError.alreadyInState`.
 
+> Either the current state's `exitBarrier` or requested state's `entryBarrier` may redirect the request to a new state. This triggers a recursive call to preflight with the redirected state.* 
+
 ### Phase 2: Transition
 
-Providing the preflight has allowed the transition, the machine then performs the transition like this:
+Providing the preflight passes, the machine then performs the transition like this:
 
 1. The internal state is changed to the new state.
 
@@ -384,50 +427,35 @@ Providing the preflight has allowed the transition, the machine then performs th
 
 ## Manual transitions
 
-Manual transitions are where you specify the desired new state as an argument. For example: 
+Manual transitions are probably the most common form of transition request. The desired new state is passed as an argument like this: 
 
 ```swift
-let result: TransitionResult<MyState> = try await machine.transition(to: .registering)
-// result.from <- Previous state
-// result.to <- new state
+machine.transition(to: .registering)
 ```
-
-**`TransitionResult`** is simply a type alias for the tuple `(_ from: <S>, _ to:<S>) where S: StateIdentifier`.
-
 
 ## Dynamic transitions
 
-Dynamic transitions are processed exactly the same as a manual transition except for one thing. you don't pass any state argument. Instead the machine runs the current state's `dynamicTransition` closure, expecting ti to return the state to transition to. For example:
+Dynamic transitions where the `dynamicTransition` closure of the current state is used to determine the state to transition to. They are triggered by simply not specifying a `to:` state argument like this:
 
 ```swift
-let machine = StateMachine {
-                  StateConfig<MyState>(.registering, 
-                                       dynamicTransition: {
-                                           return registered() ? .loggedIn : .loggedOut
-                                       },
-                                       canTransitionTo: .loggedOut, .loggedIn)
-                  StateConfig<MyState>(.loggedOut, canTransitionTo: .loggedIn, registering)
-                  StateConfig<MyState>(.loggedIn, canTransitionTo: .loggedOut)
-              }
-
-let result: TransitionResult<MyState> = try await machine.transition()
+machine.transition()
 ```
 
-> _If there was no dynamic closure specified for current state, the machine will throw a `StateMachineError.noDynamicClosure(S)` error._ 
+> _If there is no dynamic closure set on the current state the machine will throw a `StateMachineError.noDynamicClosure(S)` error._ 
 
 ## Background transitions (iOS & tvOS)
 
-Background transitions are special cases because they are not considered part of the normal state map. Automatically triggered by the app being backgrounded or restored, they involve a unique and simplified transition process. In both cases skipping pre-flight and only running some of the closures. 
+Background transitions are a special case because they are not considered part of the normal state map. Automatically triggered by the app being backgrounded or restored, they involve a unique and simplified transition process. In both cases skipping pre-flight and only running some of the closures. 
 
 ### Going into the background
 
-1. The current state is stored.
+1. The current state is stored so it can be returned to.
 
 1. The state is changed to the background state.
 
 1. The background state's `didEnter` closure is called.
 
-1. The machine is told to suspend processing until a foreground transition is requested. If any transition requests are then received a `StateMachineError.suspended` error will be thrown.
+1. The machine is told to suspend processing until a foreground transition is requested. If any subsequent transition requests are received they will fail with a `StateMachineError.suspended` error.
 
 ### Returning to the foreground
 
@@ -435,11 +463,11 @@ Foreground transitions revert the machine back to the state it was in when backg
 
 1. The machine is told to resume transition processing.
 
-1. If the stored previous state has a `transitionBarrier` it is executed and if the result is `.redirect(to:)`, then the redirect state is set as the  state to restore. `.fail` is ignored.
+2. The state is changed to the restore state.
 
-1. The state is changed to the restore state.
+3. The background state's `didExit` closure is called.
 
-1. The background state's `didExit` closure is called.
+# Storing state data
 
 # Watching transitions
 
@@ -450,67 +478,33 @@ Apart from the individual closures on the states, there are multiple ways to obs
 This is the closure that is passed to the machine when you create it like this:
 
 ```swift
-let machine = StateMachine(name: "User state machine") { fromState, toState in
+let machine = StateMachine(name: "User state machine") {
+                               // State configs.
+                           }
+                           didTransition: { fromState, toState in
                                // Called on every state change.
                            }
-                           withStates: {
-                               ...
-                           }
 ```
 
-## Combine
+## Combine & SwiftUI
 
-Machinus also has a Combine publisher which emits states as they change:
-
-```swift
-machine.statePublisher.sink { newState in
-    print("Received \(newState)")
-    switch newState {
-    case .loggedIn:
-        displayUsersHomeScreen()
-    case .loggedOut:
-        displayLoginScreen()
-    case .Registering:
-        displayRegisterUserScreen()
-    }
-}
-```
-
-> *Note that on subscription, Machinus will immediately send the current state so your code knows what it is.*
-
-## Awaiting AsyncSequence
-
-In keeping with Swift's async/await there is an `AsyncSequence` property that can be iterated over to receive state changes. It's defined as an `ErasedAsyncPublisher` which is a wrapper for an `AsyncPublisher` that simply erases the internal publisher. Other than that it's exactly the same and can be used like this:
-
-```swift
-for await state in machine.stateSequence {
-    print("Received \(newState)")
-    switch newState {
-    case .loggedIn:
-        displayUsersHomeScreen()
-    case .loggedOut:
-        displayLoginScreen()
-    case .Registering:
-         displayRegisterUserScreen()
-     }
-}
-```
+Machinus provides two `@Published` properties which output the state and any errors from failed transitions.
 
 ## Listening to transition notifications
 
 Sometimes a piece of code far away from the machine needs to be notified of a state change and it may code consuming or too difficult to pass a reference to the machine. Machinus supports this by providing a property which enables a  notification each time the state changes. 
 
 ```swift
-await machine.setPostNotifications(true)
+machine.setPostNotifications = true
 
 // Then somewhere else ...
-try await machine.transition(to: .loggedIn) { _, _ in } 
+machine.transition(to: .loggedIn) 
 ```
 
 And far far away...
 
 ```swift
-let observer = NotificationCenter.default.addStateChangeObserver { [weak self] (stateMachine: any Machine<MyState>, fromState: MyState, toState: MyState) in
+let observer = NotificationCenter.default.addStateChangeObserver { [weak self] (stateMachine: any StateMachine<MyState>, from: MyState, to: MyState) in
     // Do something here.
 }
 ```
