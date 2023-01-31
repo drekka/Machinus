@@ -1,4 +1,4 @@
-# Machinus V3
+# Machinus V3 (beta)
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/drekka/Machinus/graphs/commit-activity)
 [![GitHub license](https://img.shields.io/github/license/drekka/Machinus.svg)](https://github.com/drekka/Machinus/blob/master/LICENSE)
@@ -596,8 +596,13 @@ struct MainWindow: View {
 
     var body: some View {
         switch appState.state {
+
         case .initialising:
             Text("Initialising app")
+
+        case .signedOut:
+            Text("Please sign in")
+
         default:
             Text(verbatim: "Hello \(logonManager.currentUser.name)")
         }
