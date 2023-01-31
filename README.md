@@ -47,13 +47,13 @@ A powerful yet easy to use state machine for iOS/tvOS/MacOS and SwiftUI.
     - [Phase 2: Transition](#phase-2-transition)
   - [Manual transitions](#manual-transitions)
   - [Dynamic transitions](#dynamic-transitions)
-  - [Background transitions (iOS & tvOS)](#background-transitions-ios-tvos)
+  - [Background transitions (iOS & tvOS)](#background-transitions-ios--tvos)
     - [Going into the background](#going-into-the-background)
     - [Returning to the foreground](#returning-to-the-foreground)
 - [Storing state data](#storing-state-data)
 - [Watching transitions](#watching-transitions)
   - [Machine closure](#machine-closure)
-  - [Combine & SwiftUI](#combine-swiftui)
+  - [Combine & SwiftUI](#combine--swiftui)
   - [Listening to transition notifications](#listening-to-transition-notifications)
 - [Resetting the engine](#resetting-the-engine)
 
@@ -638,4 +638,4 @@ Resetting the state machine hard resets the engine back to the 1st state in the 
 try await machine.reset { ... }
 ```
 
-> *`reset()` is the only way to exit a final state. Although that's generally not something that you would want to do and suggests that your final state is not really final.*
+> *`reset()` is the only way to exit a final state. Although that's generally not something that you would want to do and suggests that your final state is not really a final.*
